@@ -9,28 +9,15 @@ import {
 import { getAuth, Auth } from 'firebase/auth';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
-// Master Firebase Configuration (Pusat Data Bersama & Terkunci: gubersmart@gmail.com)
-// Project ID: modul-ipa-97065
-const MASTER_FIREBASE_CONFIG = {
-  projectId: "modul-ipa-97065",
-  appId: "1:305013950051:web:e998f48c369580fc951a56",
-  apiKey: "AIzaSyBDFxgZz3IVJWZJ7hXfn8ZNxnhrUz-Q7K4",
-  authDomain: "modul-ipa-97065.firebaseapp.com",
-  firestoreDatabaseId: "(default)",
-  storageBucket: "modul-ipa-97065.firebasestorage.app",
-  messagingSenderId: "305013950051"
-};
-
-// Selalu prioritaskan MASTER_FIREBASE_CONFIG milik gubersmart@gmail.com
-// agar saat di-remix oleh akun lain, database tetap menyatu ke pusat data master gubersmart@gmail.com
+// Firebase Configuration dynamically loaded from firebase-applet-config.json
 const activeConfig = {
-  projectId: MASTER_FIREBASE_CONFIG.projectId,
-  appId: MASTER_FIREBASE_CONFIG.appId,
-  apiKey: MASTER_FIREBASE_CONFIG.apiKey,
-  authDomain: MASTER_FIREBASE_CONFIG.authDomain,
-  storageBucket: MASTER_FIREBASE_CONFIG.storageBucket,
-  messagingSenderId: MASTER_FIREBASE_CONFIG.messagingSenderId,
-  firestoreDatabaseId: MASTER_FIREBASE_CONFIG.firestoreDatabaseId
+  projectId: firebaseConfigJson.projectId,
+  appId: firebaseConfigJson.appId,
+  apiKey: firebaseConfigJson.apiKey,
+  authDomain: firebaseConfigJson.authDomain,
+  storageBucket: firebaseConfigJson.storageBucket,
+  messagingSenderId: firebaseConfigJson.messagingSenderId,
+  firestoreDatabaseId: (firebaseConfigJson as any).firestoreDatabaseId || "(default)"
 };
 
 let app: FirebaseApp;

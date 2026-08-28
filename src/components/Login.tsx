@@ -168,7 +168,7 @@ export const Login: React.FC<LoginProps> = ({
     nisn: 'Akun Pengunjung Bebas'
   }), []);
 
-  // Filter students for the selected class (strictly synced with Kelola Kelas)
+  // Filter students for the selected class (strictly synced with Kelola Kelas & Google Sheet)
   const classStudents = useMemo(() => {
     if (!userClass || userClass === 'guru' || userClass.toUpperCase() === 'TAMU') return [];
     const cleanClass = userClass.trim().toUpperCase();
@@ -181,12 +181,13 @@ export const Login: React.FC<LoginProps> = ({
   const filteredStudentSuggestions = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
-    // Base candidates
+    // Base candidates:
+    // If a class is selected (e.g. 7A, 8A, 9A), TAMU is removed and strictly shows that class's students
     let baseList: StudentItem[] = [];
     if (userClass && userClass !== 'guru' && userClass.toUpperCase() !== 'TAMU') {
-      baseList = [TAMU_STUDENT, ...classStudents];
+      baseList = [...classStudents];
     } else {
-      // No class selected or TAMU selected: show TAMU first, followed by students
+      // No class selected or TAMU selected: show TAMU first, followed by all students
       baseList = [TAMU_STUDENT, ...allStudents.filter(s => s.name.toUpperCase() !== 'TAMU')];
     }
 
@@ -204,15 +205,20 @@ export const Login: React.FC<LoginProps> = ({
   const handleClassChange = (selectedCls: string) => {
     setAuthError('');
     setUserClass(selectedCls);
-    // If the currently selected student doesn't belong to this class, clear student name unless it is TAMU
-    if (username && username.trim().toLowerCase() !== 'gurusmp' && username.trim().toUpperCase() !== 'TAMU') {
-      const existsInNewClass = allStudents.some(
-        s => s.userClass?.trim().toUpperCase() === selectedCls.trim().toUpperCase() &&
-             s.name.trim().toUpperCase() === username.trim().toUpperCase()
-      );
-      if (!existsInNewClass) {
+    // When a specific class is selected, clear TAMU or any student from a different class
+    if (username) {
+      if (username.trim().toUpperCase() === 'TAMU' || username.trim().toLowerCase() === 'gurusmp') {
         setUsername('');
         setSearchTerm('');
+      } else {
+        const existsInNewClass = allStudents.some(
+          s => s.userClass?.trim().toUpperCase() === selectedCls.trim().toUpperCase() &&
+               s.name.trim().toUpperCase() === username.trim().toUpperCase()
+        );
+        if (!existsInNewClass) {
+          setUsername('');
+          setSearchTerm('');
+        }
       }
     }
     // Auto open student dropdown once class is selected to guide the user
@@ -515,8 +521,14 @@ export const Login: React.FC<LoginProps> = ({
                       {/* Dropdown Student List */}
                       <div className="overflow-y-auto divide-y divide-slate-100 flex-1 p-1">
                         {filteredStudentSuggestions.length === 0 ? (
-                          <div className="p-3 text-center text-slate-400 text-xs font-semibold">
-                            Nama tidak ditemukan
+                          <div className="p-4 text-center text-slate-400 text-xs font-semibold">
+                            {userClass && userClass !== 'TAMU' ? (
+                              <span>
+                                {searchTerm ? `Nama "${searchTerm}" tidak ditemukan di Kelas ${userClass}` : `Belum ada data siswa untuk Kelas ${userClass}`}
+                              </span>
+                            ) : (
+                              <span>Nama tidak ditemukan</span>
+                            )}
                           </div>
                         ) : (
                           filteredStudentSuggestions.map((student, idx) => {

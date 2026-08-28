@@ -141,6 +141,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // --- Class & Student State ---
   const [newClassName, setNewClassName] = useState<string>('');
   const [isAddingClass, setIsAddingClass] = useState<boolean>(false);
+  const [isUpdatingClassId, setIsUpdatingClassId] = useState<string | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
+  const [isSavingStudent, setIsSavingStudent] = useState<boolean>(false);
+  const [isImportingStudents, setIsImportingStudents] = useState<boolean>(false);
+  const [isSavingPage, setIsSavingPage] = useState<boolean>(false);
+  const [isSavingQuiz, setIsSavingQuiz] = useState<boolean>(false);
+  const [isSavingGame, setIsSavingGame] = useState<boolean>(false);
   const [studentFilterClass, setStudentFilterClass] = useState<string>('ALL');
   const [studentSearch, setStudentSearch] = useState<string>('');
   const [isStudentModalOpen, setIsStudentModalOpen] = useState<boolean>(false);
@@ -661,28 +668,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSavePage = async () => {
     if (!editingModule || !editingPage) return;
+    if (isSavingPage) return;
+    setIsSavingPage(true);
     
-    // Ensure isGame is synced with active tab if needed
-    const finalPage: ModulePage = {
-      ...editingPage,
-      isGame: pageEditorTab === 'game' || !!editingPage.isGame
-    };
+    try {
+      // Ensure isGame is synced with active tab if needed
+      const finalPage: ModulePage = {
+        ...editingPage,
+        isGame: pageEditorTab === 'game' || !!editingPage.isGame
+      };
 
-    const pages = [...editingModule.pages];
-    const index = pages.findIndex(p => p.id === finalPage.id);
-    if (index >= 0) {
-      pages[index] = finalPage;
-    } else {
-      pages.push(finalPage);
+      const pages = [...editingModule.pages];
+      const index = pages.findIndex(p => p.id === finalPage.id);
+      if (index >= 0) {
+        pages[index] = finalPage;
+      } else {
+        pages.push(finalPage);
+      }
+
+      const updatedModule = { ...editingModule, pages };
+      setEditingModule(updatedModule);
+      await firestoreService.saveModule(updatedModule);
+      setModules(modules.map(m => m.id === updatedModule.id ? updatedModule : m));
+      setIsPageEditorOpen(false);
+      setEditingPage(null);
+      showNotification('Halaman / Game berhasil disimpan ke Firebase!', 'success');
+    } catch (err: any) {
+      showNotification(`Gagal menyimpan halaman: ${err?.message || 'Error jaringan'}`, 'error');
+    } finally {
+      setIsSavingPage(false);
     }
-
-    const updatedModule = { ...editingModule, pages };
-    setEditingModule(updatedModule);
-    await firestoreService.saveModule(updatedModule);
-    setModules(modules.map(m => m.id === updatedModule.id ? updatedModule : m));
-    setIsPageEditorOpen(false);
-    setEditingPage(null);
-    showNotification('Halaman / Game berhasil disimpan ke Firebase!', 'success');
   };
 
   const handleDeletePage = async (pageId: number) => {
@@ -766,27 +781,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveQuestion = async () => {
     if (!editingQuestion) return;
-    const questions = [...currentQuiz.questions];
-    const index = questions.findIndex(q => q.id === editingQuestion.id);
-    if (index >= 0) {
-      questions[index] = editingQuestion;
-    } else {
-      questions.push(editingQuestion);
+    if (isSavingQuiz) return;
+    setIsSavingQuiz(true);
+
+    try {
+      const questions = [...currentQuiz.questions];
+      const index = questions.findIndex(q => q.id === editingQuestion.id);
+      if (index >= 0) {
+        questions[index] = editingQuestion;
+      } else {
+        questions.push(editingQuestion);
+      }
+
+      const updatedQuiz: QuizConfig = {
+        ...currentQuiz,
+        questions
+      };
+
+      await firestoreService.saveQuiz(updatedQuiz);
+      const updatedQuizzes = quizzes.some(q => q.moduleNumber === updatedQuiz.moduleNumber)
+        ? quizzes.map(q => q.moduleNumber === updatedQuiz.moduleNumber ? updatedQuiz : q)
+        : [...quizzes, updatedQuiz];
+      setQuizzes(updatedQuizzes);
+      setIsQuestionModalOpen(false);
+      setEditingQuestion(null);
+      showNotification('Soal kuis berhasil disimpan ke Firebase!', 'success');
+    } catch (err: any) {
+      showNotification(`Gagal menyimpan soal kuis: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setIsSavingQuiz(false);
     }
-
-    const updatedQuiz: QuizConfig = {
-      ...currentQuiz,
-      questions
-    };
-
-    await firestoreService.saveQuiz(updatedQuiz);
-    const updatedQuizzes = quizzes.some(q => q.moduleNumber === updatedQuiz.moduleNumber)
-      ? quizzes.map(q => q.moduleNumber === updatedQuiz.moduleNumber ? updatedQuiz : q)
-      : [...quizzes, updatedQuiz];
-    setQuizzes(updatedQuizzes);
-    setIsQuestionModalOpen(false);
-    setEditingQuestion(null);
-    showNotification('Soal kuis berhasil disimpan ke Firebase!', 'success');
   };
 
   const handleDeleteQuestion = async (qId: number) => {
@@ -913,7 +937,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotification('Nama kelas tidak boleh kosong.', 'error');
       return;
     }
-    if (classes.some(c => c.id === trimmed || c.name === trimmed)) {
+    if (classes.some(c => (c.id || '').toUpperCase() === trimmed || (c.name || '').toUpperCase() === trimmed)) {
       showNotification('Kelas tersebut sudah ada.', 'error');
       return;
     }
@@ -924,15 +948,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         id: trimmed,
         name: trimmed,
         isActive: true,
-        studentCount: 0
+        studentCount: 0,
+        description: `Kelas ${trimmed}`
       };
 
+      // 1. Save directly to Cloud Firestore & local cache
       await firestoreService.saveClass(newClassItem);
       const updatedClasses = [...classes, newClassItem];
       setClasses(updatedClasses);
       setNewClassName('');
 
-      // 1. If Google OAuth is connected & Sheet URL exists, create Siswa_[CLASS] and Nilai_[CLASS] tabs directly via API!
+      let extraSyncInfo = '';
+      // 2. Direct Sheets API if OAuth connected
       if (googleUser && settings.sheetUrl) {
         try {
           await googleSheetsDirectService.createSheetTab(settings.sheetUrl, `Siswa_${trimmed}`, [
@@ -941,21 +968,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           await googleSheetsDirectService.createSheetTab(settings.sheetUrl, `Nilai_${trimmed}`, [
             'Waktu', 'Nama Lengkap', 'Kelas', 'Kuis / Modul', 'Nilai', 'Total Soal', 'Persentase (%)'
           ]);
-          showNotification(`Kelas ${trimmed} dibuat! Tab Siswa_${trimmed} & Nilai_${trimmed} berhasil dibuat di Google Sheet.`, 'success');
+          extraSyncInfo = ' & tab Google Sheet dibuat';
         } catch (e: any) {
           console.warn('Direct tab creation notice:', e);
         }
       }
 
-      // 2. If Google Apps Script is configured, trigger it as well
+      // 3. Google Apps Script Web App sync
       if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
         await Promise.allSettled([
           sheetService.syncClassAdded(trimmed),
           sheetService.syncClassesToSheet(updatedClasses)
         ]);
+        if (!extraSyncInfo) {
+          extraSyncInfo = ' & disinkronkan ke Google Sheet';
+        }
       }
 
-      showNotification(`Kelas ${trimmed} berhasil ditambahkan!`, 'success');
+      showNotification(`Kelas ${trimmed} berhasil disimpan ke Database Cloud${extraSyncInfo}!`, 'success');
     } catch (err: any) {
       showNotification(`Gagal menambahkan kelas: ${err?.message || 'Terjadi kesalahan'}`, 'error');
     } finally {
@@ -1185,13 +1215,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleToggleClassStatus = async (classItem: ClassItem) => {
-    const updated = { ...classItem, isActive: !classItem.isActive };
-    await firestoreService.saveClass(updated);
-    const updatedClasses = classes.map(c => c.id === updated.id ? updated : c);
-    setClasses(updatedClasses);
+    if (isUpdatingClassId) return;
+    setIsUpdatingClassId(classItem.id);
+    try {
+      const updated = { ...classItem, isActive: !classItem.isActive };
+      await firestoreService.saveClass(updated);
+      const updatedClasses = classes.map(c => c.id === updated.id ? updated : c);
+      setClasses(updatedClasses);
 
-    if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
-      sheetService.syncClassesToSheet(updatedClasses).catch(e => console.warn('Auto sync class status error:', e));
+      if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
+        sheetService.syncClassesToSheet(updatedClasses).catch(e => console.warn('Auto sync class status error:', e));
+      }
+      showNotification(`Status kelas ${classItem.name} berhasil diubah ke ${updated.isActive ? 'Aktif' : 'Non-Aktif'}.`, 'success');
+    } catch (err: any) {
+      showNotification(`Gagal mengubah status kelas: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setIsUpdatingClassId(null);
     }
   };
 
@@ -1201,26 +1240,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotification('Nama siswa dan kelas wajib diisi.', 'error');
       return;
     }
+    if (isSavingStudent) return;
+    setIsSavingStudent(true);
 
-    await firestoreService.saveStudent({
-      name: editingStudent.name,
-      userClass: editingStudent.userClass,
-      nisn: editingStudent.nisn || '',
-      status: editingStudent.status || 'Aktif',
-      id: editingStudent.id
-    });
+    try {
+      await firestoreService.saveStudent({
+        name: editingStudent.name,
+        userClass: editingStudent.userClass,
+        nisn: editingStudent.nisn || '',
+        status: editingStudent.status || 'Aktif',
+        id: editingStudent.id
+      });
 
-    const refreshed = await firestoreService.getStudents();
-    setStudents(refreshed);
-    setIsStudentModalOpen(false);
-    setEditingStudent({ name: '', userClass: '8A', nisn: '', status: 'Aktif' });
+      const refreshed = await firestoreService.getStudents();
+      setStudents(refreshed);
+      setIsStudentModalOpen(false);
+      setEditingStudent({ name: '', userClass: '8A', nisn: '', status: 'Aktif' });
 
-    // If Google Sheet is connected, auto sync students list immediately
-    if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
-      sheetService.syncStudentsToSheet(refreshed).catch(e => console.warn('Auto sync student error:', e));
-      showNotification('Data siswa berhasil disimpan & disinkronkan ke Google Sheet!', 'success');
-    } else {
-      showNotification('Data siswa berhasil disimpan!', 'success');
+      // If Google Sheet is connected, auto sync students list immediately
+      if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
+        await sheetService.syncStudentsToSheet(refreshed).catch(e => console.warn('Auto sync student error:', e));
+        showNotification('Data siswa berhasil disimpan & disinkronkan ke Google Sheet!', 'success');
+      } else {
+        showNotification('Data siswa berhasil disimpan!', 'success');
+      }
+    } catch (err: any) {
+      showNotification(`Gagal menyimpan siswa: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setIsSavingStudent(false);
     }
   };
 
@@ -1242,36 +1289,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!bulkStudentText.trim()) return;
     const lines = bulkStudentText.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length === 0) return;
+    if (isImportingStudents) return;
+    setIsImportingStudents(true);
 
-    for (const line of lines) {
-      // Support "NISN, Nama" or just "Nama"
-      let nisn = '';
-      let name = line;
-      if (line.includes(',') || line.includes('\t')) {
-        const parts = line.split(/,|\t/);
-        nisn = parts[0]?.trim() || '';
-        name = parts[1]?.trim() || parts[0]?.trim();
+    try {
+      for (const line of lines) {
+        // Support "NISN, Nama" or just "Nama"
+        let nisn = '';
+        let name = line;
+        if (line.includes(',') || line.includes('\t')) {
+          const parts = line.split(/,|\t/);
+          nisn = parts[0]?.trim() || '';
+          name = parts[1]?.trim() || parts[0]?.trim();
+        }
+
+        await firestoreService.saveStudent({
+          name,
+          userClass: bulkStudentClass,
+          nisn,
+          status: 'Aktif'
+        });
       }
 
-      await firestoreService.saveStudent({
-        name,
-        userClass: bulkStudentClass,
-        nisn,
-        status: 'Aktif'
-      });
-    }
+      const refreshed = await firestoreService.getStudents();
+      setStudents(refreshed);
+      setShowBulkModal(false);
+      setBulkStudentText('');
 
-    const refreshed = await firestoreService.getStudents();
-    setStudents(refreshed);
-    setShowBulkModal(false);
-    setBulkStudentText('');
-
-    // If Google Sheet is connected, auto sync bulk imported students immediately
-    if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
-      sheetService.syncStudentsToSheet(refreshed).catch(e => console.warn('Auto sync bulk students error:', e));
-      showNotification(`Berhasil mengimpor ${lines.length} siswa & disinkronkan ke Google Sheet!`, 'success');
-    } else {
-      showNotification(`Berhasil mengimpor ${lines.length} siswa ke Kelas ${bulkStudentClass}!`, 'success');
+      // If Google Sheet is connected, auto sync bulk imported students immediately
+      if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
+        await sheetService.syncStudentsToSheet(refreshed).catch(e => console.warn('Auto sync bulk students error:', e));
+        showNotification(`Berhasil mengimpor ${lines.length} siswa & disinkronkan ke Google Sheet!`, 'success');
+      } else {
+        showNotification(`Berhasil mengimpor ${lines.length} siswa ke Kelas ${bulkStudentClass}!`, 'success');
+      }
+    } catch (err: any) {
+      showNotification(`Gagal mengimpor siswa: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setIsImportingStudents(false);
     }
   };
 
@@ -1424,11 +1479,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // --- Handlers: Settings & Customization ---
   const handleSaveSettings = async () => {
+    if (isSavingSettings) return;
+    setIsSavingSettings(true);
     try {
       await firestoreService.saveSettings(settings);
       showNotification('Pengaturan & Logo berhasil tersimpan ke Firebase Firestore! Semua pengguna akan melihat perubahannya.', 'success');
     } catch (err: any) {
       showNotification(`Gagal menyimpan pengaturan ke cloud: ${err?.message || 'Error jaringan'}`, 'error');
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -2601,14 +2660,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </td>
                                 <td className="py-3 px-4">
                                   <button
+                                    disabled={isUpdatingClassId === cls.id}
                                     onClick={() => handleToggleClassStatus(cls)}
-                                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
+                                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-60 inline-flex items-center gap-1 ${
                                       cls.isActive
-                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                        : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                        : 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200'
                                     }`}
                                   >
-                                    {cls.isActive ? 'Aktif' : 'Non-Aktif'}
+                                    {isUpdatingClassId === cls.id ? (
+                                      <>
+                                        <Loader2 size={11} className="animate-spin" />
+                                        <span>Menyimpan...</span>
+                                      </>
+                                    ) : (
+                                      cls.isActive ? 'Aktif' : 'Non-Aktif'
+                                    )}
                                   </button>
                                 </td>
                                 <td className="py-3 px-4 text-right">
@@ -3048,7 +3115,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleResetSettingsToDefault}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all border border-slate-300"
+                        disabled={isSavingSettings}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all border border-slate-300 disabled:opacity-50"
                         title="Kembalikan semua nilai ke bawaan awal"
                       >
                         <RotateCcw size={13} />
@@ -3056,10 +3124,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
                       <button
                         onClick={handleSaveSettings}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                        disabled={isSavingSettings}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer disabled:cursor-not-allowed"
                       >
-                        <Save size={15} />
-                        <span>Simpan Pengaturan</span>
+                        {isSavingSettings ? (
+                          <>
+                            <Loader2 size={15} className="animate-spin" />
+                            <span>Sedang Menyimpan...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save size={15} />
+                            <span>Simpan Pengaturan</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -3531,10 +3609,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </span>
                     <button
                       onClick={handleSaveSettings}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      disabled={isSavingSettings}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer disabled:cursor-not-allowed"
                     >
-                      <Save size={16} />
-                      <span>Simpan Semua Pengaturan</span>
+                      {isSavingSettings ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>Sedang Menyimpan Pengaturan...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={16} />
+                          <span>Simpan Semua Pengaturan</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -4045,22 +4133,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                 <button
                   type="button"
+                  disabled={isSavingPage}
                   onClick={() => setIsPageEditorOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
+                  disabled={isSavingPage}
                   onClick={handleSavePage}
-                  className={`px-5 py-2 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 ${
+                  className={`px-5 py-2 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed ${
                     pageEditorTab === 'game' 
                       ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700' 
                       : 'bg-emerald-600 hover:bg-emerald-700'
                   }`}
                 >
-                  <Save size={15} />
-                  <span>{pageEditorTab === 'game' ? 'Simpan Game ke Firebase' : 'Simpan Halaman ke Firebase'}</span>
+                  {isSavingPage ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>{pageEditorTab === 'game' ? 'Sedang Menyimpan Game...' : 'Sedang Menyimpan Halaman...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={15} />
+                      <span>{pageEditorTab === 'game' ? 'Simpan Game ke Firebase' : 'Simpan Halaman ke Firebase'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>
@@ -4156,17 +4255,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
+                  disabled={isSavingQuiz}
                   onClick={() => setIsQuestionModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
+                  disabled={isSavingQuiz}
                   onClick={handleSaveQuestion}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer disabled:cursor-not-allowed"
                 >
-                  Simpan Soal ke Firebase
+                  {isSavingQuiz ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Sedang Menyimpan Soal...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Soal ke Firebase</span>
+                  )}
                 </button>
               </div>
             </motion.div>
@@ -4233,17 +4341,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
+                  disabled={isSavingStudent}
                   onClick={() => setIsStudentModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
+                  disabled={isSavingStudent}
                   onClick={handleSaveStudent}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer disabled:cursor-not-allowed"
                 >
-                  Simpan Siswa
+                  {isSavingStudent ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Sedang Menyimpan Siswa...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Siswa</span>
+                  )}
                 </button>
               </div>
             </motion.div>
@@ -4549,17 +4666,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
+                  disabled={isImportingStudents}
                   onClick={() => setShowBulkModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="button"
+                  disabled={isImportingStudents || !bulkStudentText.trim()}
                   onClick={handleBulkImportStudents}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-all disabled:cursor-not-allowed"
                 >
-                  Mulai Impor Siswa
+                  {isImportingStudents ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Sedang Mengimpor Siswa...</span>
+                    </>
+                  ) : (
+                    <span>Mulai Impor Siswa</span>
+                  )}
                 </button>
               </div>
             </motion.div>
