@@ -1,0 +1,8 @@
+{
+  "name": "Remix4 MODUL BELAJAR IPA SMP FIREBASE SHEET",
+  "description": "Aplikasi modul Belajar IPA SMP",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

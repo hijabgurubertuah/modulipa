@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "Module": {
+      "title": "Module",
+      "description": "Educational learning module for students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Module ID number" },
+        "title": { "type": "string", "description": "Module short title" },
+        "subtitle": { "type": "string", "description": "Module descriptive subtitle" },
+        "theme": { "type": "string", "description": "Color theme identifier" },
+        "color": { "type": "string", "description": "Tailwind color class" },
+        "icon": { "type": "string", "description": "Lucide icon name" },
+        "order": { "type": "number", "description": "Display order" },
+        "pages": { "type": "array", "description": "List of pages in module" }
+      },
+      "required": ["id", "title", "subtitle", "order"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Module quiz configuration and question bank",
+      "type": "object",
+      "properties": {
+        "moduleNumber": { "type": "number", "description": "Target module number" },
+        "questions": { "type": "array", "description": "List of quiz questions" }
+      },
+      "required": ["moduleNumber", "questions"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Application general settings including logo, title, and texts",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string", "description": "Direct logo URL or compressed base64 image" },
+        "logoTitle": { "type": "string", "description": "Logo alt text or organization name" },
+        "logoAnimation": { "type": "boolean", "description": "Whether logo 3D rotation is enabled" },
+        "homeWelcomeTitle": { "type": "string", "description": "Main welcome banner title" },
+        "homeWelcomeSubtitle": { "type": "string", "description": "Main welcome subtitle" },
+        "homeQuote": { "type": "string", "description": "Inspirational quote text" }
+      }
+    },
+    "Game": {
+      "title": "Game",
+      "description": "Educational interactive games (modular or custom HTML/TSX)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Game unique identifier" },
+        "title": { "type": "string", "description": "Game title" },
+        "category": { "type": "string", "description": "Game category or subject" },
+        "type": { "type": "string", "description": "Game type (modular_game1, modular_game2, modular_game3, memory, custom_html, custom_tsx)" },
+        "description": { "type": "string", "description": "Game description" },
+        "code": { "type": "string", "description": "Custom game HTML or React TSX source code" },
+        "instructions": { "type": "string", "description": "Gameplay instructions for students" },
+        "passScore": { "type": "number", "description": "Target score or level to pass" },
+        "thumbnailIcon": { "type": "string", "description": "Lucide icon name or emoji" },
+        "iconUrl": { "type": "string", "description": "Direct game icon data stored in Firebase as base64 or URL" },
+        "imageUrl": { "type": "string", "description": "Game banner/cover image data stored in Firebase as base64 or URL" },
+        "items": { "type": "array", "description": "List of visual items/cards with name, emoji, and Firebase-stored imageUrl" },
+        "isBuiltIn": { "type": "boolean", "description": "Whether game is a system modular game" }
+      },
+      "required": ["id", "title", "type"]
+    }
+  },
+  "firestore": {
+    "/games/{gameId}": {
+      "schema": "Game",
+      "description": "Collection of educational games"
+    },
+    "/modules/{moduleId}": {
+      "schema": "Module",
+      "description": "Collection of learning modules"
+    },
+    "/quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Collection of module quizzes"
+    },
+    "/settings/{settingId}": {
+      "schema": "AppSettings",
+      "description": "Application settings and branding configurations"
+    },
+    "/classes/{classId}": {
+      "schema": "object",
+      "description": "List of school classes"
+    },
+    "/students/{studentId}": {
+      "schema": "object",
+      "description": "Registered students data"
+    },
+    "/scores/{scoreId}": {
+      "schema": "object",
+      "description": "Student quiz scores"
+    },
+    "/logs/{logId}": {
+      "schema": "object",
+      "description": "Student activity audit logs"
+    }
+  }
+}
