@@ -911,27 +911,14 @@ export const getDefaultQuizzes = (): QuizConfig[] => [
   }
 ];
 
-export const DEFAULT_CLASSES: ClassItem[] = [
-  { id: '7A', name: '7A', isActive: true, studentCount: 0, description: 'Kelas 7A' },
-  { id: '7B', name: '7B', isActive: true, studentCount: 0, description: 'Kelas 7B' },
-  { id: '7C', name: '7C', isActive: true, studentCount: 0, description: 'Kelas 7C' },
-  { id: '7D', name: '7D', isActive: true, studentCount: 0, description: 'Kelas 7D' },
-  { id: '8A', name: '8A', isActive: true, studentCount: 0, description: 'Kelas 8A' },
-  { id: '8B', name: '8B', isActive: true, studentCount: 0, description: 'Kelas 8B' },
-  { id: '8C', name: '8C', isActive: true, studentCount: 0, description: 'Kelas 8C' },
-  { id: '8D', name: '8D', isActive: true, studentCount: 0, description: 'Kelas 8D' },
-  { id: '9A', name: '9A', isActive: true, studentCount: 0, description: 'Kelas 9A' },
-  { id: '9B', name: '9B', isActive: true, studentCount: 0, description: 'Kelas 9B' },
-  { id: '9C', name: '9C', isActive: true, studentCount: 0, description: 'Kelas 9C' },
-  { id: '9D', name: '9D', isActive: true, studentCount: 0, description: 'Kelas 9D' }
-];
+export const DEFAULT_CLASSES: ClassItem[] = [];
 
 export const DEFAULT_STUDENTS: StudentItem[] = [];
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  googleAppsScriptUrl: 'https://script.google.com/macros/s/AKfycbzLsyFBV2ntaJiXODGepHSTCfubPWmRdIO27iuXwbgVEA3Cs1vMw5c0F1KuOcd_A2NEsw/exec',
-  sheetId: '',
-  sheetUrl: '',
+  googleAppsScriptUrl: 'https://script.google.com/macros/s/AKfycbwcdea5JWF2NxbfzVdH9Namnxdf_mlTe6ry7wHoVolRscTsXbKDypQbJCGndPvHB0Sd/exec',
+  sheetId: '1y8MREQ6tr497vX_3MiO5EJeZK7ufbHH--xfhUUAOADU',
+  sheetUrl: 'https://docs.google.com/spreadsheets/d/1y8MREQ6tr497vX_3MiO5EJeZK7ufbHH--xfhUUAOADU/edit',
   adminPassword: 'gurusmp',
   schoolName: 'SMPN 1 Bengkalis',
   appTitle: 'Modul Belajar Berkebun IPA SMP',

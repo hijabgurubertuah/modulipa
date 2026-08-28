@@ -42,7 +42,7 @@ export const Login: React.FC<LoginProps> = ({
   onOpenAdmin,
   settings: propSettings
 }) => {
-  const [classesList, setClassesList] = useState<ClassItem[]>(DEFAULT_CLASSES);
+  const [classesList, setClassesList] = useState<ClassItem[]>([]);
   const [allStudents, setAllStudents] = useState<StudentItem[]>([]);
   const [currentSettings, setCurrentSettings] = useState<AppSettings>(propSettings || DEFAULT_SETTINGS);
   const [authError, setAuthError] = useState<string>('');
@@ -486,40 +486,18 @@ export const Login: React.FC<LoginProps> = ({
                       initial={{ opacity: 0, y: -6, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-50 left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border-2 border-purple-300 overflow-hidden max-h-64 flex flex-col text-slate-800"
+                      transition={{ duration: 0.12 }}
+                      className="absolute z-50 left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border-2 border-purple-300 overflow-hidden max-h-60 flex flex-col text-slate-800"
                     >
-                      {/* Dropdown Header Info */}
-                      <div className="px-3.5 py-2 bg-purple-50 border-b border-purple-100 flex items-center justify-between text-xs font-bold text-purple-900">
-                        <span className="flex items-center gap-1.5">
-                          <GraduationCap size={14} className="text-purple-700" />
-                          Daftar Siswa Kelas {userClass}
-                        </span>
-                        <span className="text-[11px] bg-purple-200/80 text-purple-900 px-2 py-0.5 rounded-full">
-                          {filteredStudentSuggestions.length} dari {classStudents.length} siswa
-                        </span>
-                      </div>
-
                       {/* Dropdown Student List */}
                       <div className="overflow-y-auto divide-y divide-slate-100 flex-1 p-1">
                         {classStudents.length === 0 ? (
-                          <div className="p-4 text-center text-slate-500">
-                            <p className="text-xs font-bold mb-1">Belum ada siswa terdaftar di Kelas {userClass}</p>
-                            <p className="text-[11px] text-slate-400">Hubungi Guru/Admin untuk menambahkan data siswa di kelas ini.</p>
+                          <div className="p-3 text-center text-slate-400 text-xs font-semibold">
+                            Tidak ada siswa di Kelas {userClass}
                           </div>
                         ) : filteredStudentSuggestions.length === 0 ? (
-                          <div className="p-4 text-center text-slate-500">
-                            <p className="text-xs font-bold text-rose-600 mb-1">Nama "{searchTerm}" tidak ditemukan di Kelas {userClass}</p>
-                            <p className="text-[11px] text-slate-400 mb-2">
-                              Pastikan ejaan benar atau pilih langsung dari {classStudents.length} siswa terdaftar di bawah.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => setSearchTerm('')}
-                              className="px-3 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                            >
-                              Tampilkan Semua Siswa Kelas {userClass}
-                            </button>
+                          <div className="p-3 text-center text-slate-400 text-xs font-semibold">
+                            Nama tidak ditemukan
                           </div>
                         ) : (
                           filteredStudentSuggestions.map((student, idx) => {
@@ -529,55 +507,25 @@ export const Login: React.FC<LoginProps> = ({
                                 key={`opt-std-${student.id || idx}`}
                                 type="button"
                                 onClick={() => handleSelectStudent(student.name)}
-                                className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 rounded-xl transition-all cursor-pointer ${
+                                className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 rounded-xl transition-all cursor-pointer ${
                                   isSelected 
-                                    ? 'bg-purple-100 text-purple-950 font-black' 
-                                    : 'hover:bg-purple-50/80 text-slate-800'
+                                    ? 'bg-purple-100 text-purple-950 font-bold' 
+                                    : 'hover:bg-purple-50 text-slate-800 font-medium'
                                 }`}
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                                    isSelected ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'
-                                  }`}>
-                                    {student.name.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="min-w-0 text-left">
-                                    <p className="text-xs font-bold truncate">
-                                      {renderHighlightedName(student.name, searchTerm)}
-                                    </p>
-                                    {student.nisn && (
-                                      <p className="text-[10px] text-slate-400 truncate">
-                                        NISN: {student.nisn}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
+                                <span className="text-sm truncate">
+                                  {renderHighlightedName(student.name, searchTerm)}
+                                </span>
                                 
-                                {isSelected ? (
-                                  <div className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0">
-                                    <Check size={12} />
+                                {isSelected && (
+                                  <div className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0">
+                                    <Check size={11} />
                                   </div>
-                                ) : (
-                                  <span className="text-[10px] text-purple-600 font-semibold shrink-0 opacity-0 group-hover:opacity-100">
-                                    Pilih
-                                  </span>
                                 )}
                               </button>
                             );
                           })
                         )}
-                      </div>
-
-                      {/* Dropdown Footer */}
-                      <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-500 flex items-center justify-between">
-                        <span>🔒 Hanya nama terdaftar yang diizinkan masuk</span>
-                        <button
-                          type="button"
-                          onClick={() => setIsDropdownOpen(false)}
-                          className="font-bold text-purple-700 hover:text-purple-900 cursor-pointer"
-                        >
-                          Tutup [x]
-                        </button>
                       </div>
                     </motion.div>
                   )}

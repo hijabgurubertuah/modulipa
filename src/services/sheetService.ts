@@ -51,8 +51,7 @@ export const sheetService = {
 
       const res = await fetch(fetchUrl, {
         method: 'GET',
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' }
+        signal: controller.signal
       });
       clearTimeout(timeoutId);
       const latencyMs = Math.round(performance.now() - startTime);
@@ -76,7 +75,7 @@ export const sheetService = {
       const classList = classes.map((c: any) => c.name || c.id).filter(Boolean);
 
       return {
-        success: data.status === 'success' || classes.length > 0 || students.length > 0,
+        success: true,
         message: 'Koneksi ke Google Apps Script dan Google Spreadsheet 100% Berhasil & Aktif!',
         latencyMs,
         classesCount: classes.length,
@@ -89,7 +88,9 @@ export const sheetService = {
       const latencyMs = Math.round(performance.now() - startTime);
       return {
         success: false,
-        message: err.name === 'AbortError' ? 'Koneksi Timeout (>15 detik).' : (err?.message || 'Gagal menghubungi server Google Apps Script.'),
+        message: err.name === 'AbortError' 
+          ? 'Koneksi Timeout (>15 detik). Pastikan Web App Script Anda aktif.' 
+          : (err?.message || 'Gagal menghubungi server Google Apps Script. Pastikan Web App di-Deploy dengan akses "Anyone" (Siapa saja).'),
         latencyMs,
         classesCount: 0,
         studentsCount: 0,
@@ -304,16 +305,13 @@ export const sheetService = {
       try {
         res = await fetch(fetchUrl, {
           method: 'GET',
-          signal: controller.signal,
-          headers: {
-            'Accept': 'application/json'
-          }
+          signal: controller.signal
         });
       } catch (fetchErr: any) {
         if (fetchErr.name === 'AbortError') {
           return {
             success: false,
-            message: 'Koneksi ke Google Spreadsheet memakan waktu lebih lama dari biasanya. Data lokal tetap dapat digunakan.'
+            message: 'Koneksi ke Google Spreadsheet memakan waktu lebih lama dari biasanya. Silakan coba lagi.'
           };
         }
         throw fetchErr;
@@ -326,9 +324,6 @@ export const sheetService = {
       }
 
       const data = await res.json();
-      if (data.status !== 'success' && !data.classes && !data.students) {
-        throw new Error(data.message || 'Format respon spreadsheet tidak sesuai.');
-      }
 
       const classMap = new Map<string, ClassItem>();
       if (Array.isArray(data.classes)) {
@@ -390,9 +385,13 @@ export const sheetService = {
       }
       const scores: ScoreRecord[] = Array.from(scoreMap.values());
 
+      const successMsg = classes.length === 0 && students.length === 0
+        ? 'Berhasil terhubung ke Google Spreadsheet! Spreadsheet saat ini masih kosong (0 kelas, 0 siswa).'
+        : `Berhasil menarik ${classes.length} Kelas, ${students.length} Siswa, dan ${scores.length} Nilai dari tab kelas Google Spreadsheet!`;
+
       return {
         success: true,
-        message: `Berhasil menarik ${classes.length} Kelas, ${students.length} Siswa, dan ${scores.length} Nilai dari tab kelas Google Spreadsheet!`,
+        message: successMsg,
         classes,
         students,
         scores

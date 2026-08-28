@@ -57,7 +57,8 @@ import {
   AlertTriangle,
   CheckSquare,
   Square,
-  CheckCheck
+  CheckCheck,
+  Loader2
 } from 'lucide-react';
 import { 
   AppModule, 
@@ -139,6 +140,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // --- Class & Student State ---
   const [newClassName, setNewClassName] = useState<string>('');
+  const [isAddingClass, setIsAddingClass] = useState<boolean>(false);
   const [studentFilterClass, setStudentFilterClass] = useState<string>('ALL');
   const [studentSearch, setStudentSearch] = useState<string>('');
   const [isStudentModalOpen, setIsStudentModalOpen] = useState<boolean>(false);
@@ -905,50 +907,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // --- Handlers: Classes ---
   const handleAddClass = async () => {
+    if (isAddingClass) return;
     const trimmed = newClassName.trim().toUpperCase();
     if (!trimmed) {
       showNotification('Nama kelas tidak boleh kosong.', 'error');
       return;
     }
-    if (classes.some(c => c.id === trimmed)) {
+    if (classes.some(c => c.id === trimmed || c.name === trimmed)) {
       showNotification('Kelas tersebut sudah ada.', 'error');
       return;
     }
 
-    const newClassItem: ClassItem = {
-      id: trimmed,
-      name: trimmed,
-      isActive: true,
-      studentCount: 0
-    };
+    setIsAddingClass(true);
+    try {
+      const newClassItem: ClassItem = {
+        id: trimmed,
+        name: trimmed,
+        isActive: true,
+        studentCount: 0
+      };
 
-    await firestoreService.saveClass(newClassItem);
-    const updatedClasses = [...classes, newClassItem];
-    setClasses(updatedClasses);
-    setNewClassName('');
+      await firestoreService.saveClass(newClassItem);
+      const updatedClasses = [...classes, newClassItem];
+      setClasses(updatedClasses);
+      setNewClassName('');
 
-    // 1. If Google OAuth is connected & Sheet URL exists, create Siswa_[CLASS] and Nilai_[CLASS] tabs directly via API!
-    if (googleUser && settings.sheetUrl) {
-      try {
-        await googleSheetsDirectService.createSheetTab(settings.sheetUrl, `Siswa_${trimmed}`, [
-          'No', 'NISN / ID', 'Nama Lengkap', 'Kelas', 'Password', 'Status'
-        ]);
-        await googleSheetsDirectService.createSheetTab(settings.sheetUrl, `Nilai_${trimmed}`, [
-          'Waktu', 'Nama Lengkap', 'Kelas', 'Kuis / Modul', 'Nilai', 'Total Soal', 'Persentase (%)'
-        ]);
-        showNotification(`Kelas ${trimmed} dibuat! Tab Siswa_${trimmed} & Nilai_${trimmed} berhasil dibuat di Google Sheet.`, 'success');
-      } catch (e: any) {
-        console.warn('Direct tab creation notice:', e);
+      // 1. If Google OAuth is connected & Sheet URL exists, create Siswa_[CLASS] and Nilai_[CLASS] tabs directly via API!
+      if (googleUser && settings.sheetUrl) {
+        try {
+          await googleSheetsDirectService.createSheetTab(settings.sheetUrl, `Siswa_${trimmed}`, [
+            'No', 'NISN / ID', 'Nama Lengkap', 'Kelas', 'Password', 'Status'
+          ]);
+          await googleSheetsDirectService.createSheetTab(settings.sheetUrl, `Nilai_${trimmed}`, [
+            'Waktu', 'Nama Lengkap', 'Kelas', 'Kuis / Modul', 'Nilai', 'Total Soal', 'Persentase (%)'
+          ]);
+          showNotification(`Kelas ${trimmed} dibuat! Tab Siswa_${trimmed} & Nilai_${trimmed} berhasil dibuat di Google Sheet.`, 'success');
+        } catch (e: any) {
+          console.warn('Direct tab creation notice:', e);
+        }
       }
-    }
 
-    // 2. If Google Apps Script is configured, trigger it as well
-    if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
-      sheetService.syncClassAdded(trimmed).catch(e => console.warn('Auto sync class add tab error:', e));
-      sheetService.syncClassesToSheet(updatedClasses).catch(e => console.warn('Auto sync class error:', e));
-    }
+      // 2. If Google Apps Script is configured, trigger it as well
+      if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('http')) {
+        await Promise.allSettled([
+          sheetService.syncClassAdded(trimmed),
+          sheetService.syncClassesToSheet(updatedClasses)
+        ]);
+      }
 
-    showNotification(`Kelas ${trimmed} berhasil ditambahkan!`, 'success');
+      showNotification(`Kelas ${trimmed} berhasil ditambahkan!`, 'success');
+    } catch (err: any) {
+      showNotification(`Gagal menambahkan kelas: ${err?.message || 'Terjadi kesalahan'}`, 'error');
+    } finally {
+      setIsAddingClass(false);
+    }
   };
 
   const handleDeleteClass = async (classId: string) => {
@@ -2486,15 +2498,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       type="text"
                       placeholder="Masukkan Nama Kelas (misal: 7A, 8A, 9A)..."
                       value={newClassName}
+                      disabled={isAddingClass}
                       onChange={e => setNewClassName(e.target.value)}
-                      className="flex-1 min-w-[200px] px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden font-semibold uppercase"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !isAddingClass && newClassName.trim()) {
+                          handleAddClass();
+                        }
+                      }}
+                      className="flex-1 min-w-[200px] px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden font-semibold uppercase disabled:bg-slate-100 disabled:text-slate-400"
                     />
                     <button
                       onClick={handleAddClass}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      disabled={isAddingClass || !newClassName.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
                     >
-                      <Plus size={15} />
-                      <span>Tambah Kelas</span>
+                      {isAddingClass ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Menambahkan...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={15} />
+                          <span>Tambah Kelas</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
@@ -2553,27 +2581,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {classes.length === 0 ? (
                           <tr>
                             <td colSpan={5} className="py-8 text-center text-slate-400">
-                              <p className="text-xs mb-2">Belum ada daftar kelas.</p>
-                              <button
-                                onClick={async () => {
-                                  const def = firestoreService.getDefaultClassesList ? firestoreService.getDefaultClassesList() : [
-                                    { id: '7A', name: '7A', isActive: true, studentCount: 0 },
-                                    { id: '7B', name: '7B', isActive: true, studentCount: 0 },
-                                    { id: '8A', name: '8A', isActive: true, studentCount: 0 },
-                                    { id: '8B', name: '8B', isActive: true, studentCount: 0 },
-                                    { id: '9A', name: '9A', isActive: true, studentCount: 0 },
-                                    { id: '9B', name: '9B', isActive: true, studentCount: 0 }
-                                  ];
-                                  for (const c of def) {
-                                    await firestoreService.saveClass(c);
-                                  }
-                                  setClasses(def);
-                                  showNotification('Daftar kelas bawaan berhasil dipulihkan!', 'success');
-                                }}
-                                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-                              >
-                                Pulihkan Kelas Standar (7A - 9B)
-                              </button>
+                              <p className="text-xs">Belum ada daftar kelas. Silakan tambah kelas baru atau sinkronkan dari Spreadsheet.</p>
                             </td>
                           </tr>
                         ) : (

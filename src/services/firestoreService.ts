@@ -959,6 +959,12 @@ export const firestoreService = {
   getSettings: async (): Promise<AppSettings> => {
     const cached = getSafeCached<AppSettings>('settings');
     if (cached) {
+      if (cached.googleAppsScriptUrl && cached.googleAppsScriptUrl.includes('AKfycbzLsyFBV2ntaJiXODGepHSTCfubPWmRdIO27iuXwbgVEA3Cs1vMw5c0F1KuOcd_A2NEsw')) {
+        cached.googleAppsScriptUrl = DEFAULT_SETTINGS.googleAppsScriptUrl;
+        cached.sheetUrl = DEFAULT_SETTINGS.sheetUrl;
+        cached.sheetId = DEFAULT_SETTINGS.sheetId;
+        setSafeCached('settings', cached);
+      }
       setTimeout(() => {
         firestoreService.fetchRemoteSettings().catch(() => {});
       }, 50);
@@ -978,6 +984,12 @@ export const firestoreService = {
     const snap = await withTimeout(getDoc(docRef), 3000);
     if (snap.exists()) {
       const settings = snap.data() as AppSettings;
+      if (settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.includes('AKfycbzLsyFBV2ntaJiXODGepHSTCfubPWmRdIO27iuXwbgVEA3Cs1vMw5c0F1KuOcd_A2NEsw')) {
+        settings.googleAppsScriptUrl = DEFAULT_SETTINGS.googleAppsScriptUrl;
+        settings.sheetUrl = DEFAULT_SETTINGS.sheetUrl;
+        settings.sheetId = DEFAULT_SETTINGS.sheetId;
+        firestoreService.saveSettings(settings).catch(() => {});
+      }
       setSafeCached('settings', settings);
       return settings;
     }
