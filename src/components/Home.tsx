@@ -77,7 +77,7 @@ export const Home: React.FC<HomeProps> = ({
             Halo, {username}!
           </p>
           <p className="text-xs md:text-sm font-black text-emerald-400 uppercase tracking-widest bg-emerald-400/10 px-3 py-1 rounded-full inline-block">
-            Kelas: {userClass}
+            {userClass.toUpperCase() === 'TAMU' ? 'Akses: Pengunjung (TAMU)' : `Kelas: ${userClass}`}
           </p>
         </div>
       </div>

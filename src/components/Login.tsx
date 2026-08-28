@@ -159,39 +159,53 @@ export const Login: React.FC<LoginProps> = ({
     }
   }, [username]);
 
+  // Special Hardcoded Guest Student Item
+  const TAMU_STUDENT: StudentItem = useMemo(() => ({
+    id: 'guest_tamu_student',
+    name: 'TAMU',
+    userClass: 'TAMU',
+    status: 'Aktif',
+    nisn: 'Akun Pengunjung Bebas'
+  }), []);
+
   // Filter students for the selected class (strictly synced with Kelola Kelas)
   const classStudents = useMemo(() => {
-    if (!userClass || userClass === 'guru') return [];
+    if (!userClass || userClass === 'guru' || userClass.toUpperCase() === 'TAMU') return [];
     const cleanClass = userClass.trim().toUpperCase();
     return allStudents.filter(s => 
-      s.userClass && s.userClass.trim().toUpperCase() === cleanClass && s.status !== 'Non-Aktif'
+      s.userClass && s.userClass.trim().toUpperCase() === cleanClass && s.status !== 'Non-Aktif' && s.name.toUpperCase() !== 'TAMU'
     ).sort((a, b) => a.name.localeCompare(b.name, 'id', { sensitivity: 'base' }));
   }, [allStudents, userClass]);
 
   // Search filtered student suggestions based on user typing
   const filteredStudentSuggestions = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    
-    // Check if query is teacher keyword
-    const isTeacherKey = query === 'gurusmp';
 
-    if (!query) {
-      return classStudents;
+    // Base candidates
+    let baseList: StudentItem[] = [];
+    if (userClass && userClass !== 'guru' && userClass.toUpperCase() !== 'TAMU') {
+      baseList = [TAMU_STUDENT, ...classStudents];
+    } else {
+      // No class selected or TAMU selected: show TAMU first, followed by students
+      baseList = [TAMU_STUDENT, ...allStudents.filter(s => s.name.toUpperCase() !== 'TAMU')];
     }
 
-    const matched = classStudents.filter(s => 
-      s.name.toLowerCase().includes(query) || 
-      (s.nisn && s.nisn.toLowerCase().includes(query))
-    );
+    if (!query) {
+      return baseList;
+    }
 
-    return matched;
-  }, [classStudents, searchTerm]);
+    return baseList.filter(s => 
+      s.name.toLowerCase().includes(query) || 
+      (s.nisn && s.nisn.toLowerCase().includes(query)) ||
+      (s.userClass && s.userClass.toLowerCase().includes(query))
+    );
+  }, [classStudents, allStudents, userClass, searchTerm, TAMU_STUDENT]);
 
   const handleClassChange = (selectedCls: string) => {
     setAuthError('');
     setUserClass(selectedCls);
-    // If the currently selected student doesn't belong to this class, clear student name
-    if (username && username.trim().toLowerCase() !== 'gurusmp') {
+    // If the currently selected student doesn't belong to this class, clear student name unless it is TAMU
+    if (username && username.trim().toLowerCase() !== 'gurusmp' && username.trim().toUpperCase() !== 'TAMU') {
       const existsInNewClass = allStudents.some(
         s => s.userClass?.trim().toUpperCase() === selectedCls.trim().toUpperCase() &&
              s.name.trim().toUpperCase() === username.trim().toUpperCase()
@@ -212,15 +226,20 @@ export const Login: React.FC<LoginProps> = ({
     setAuthError('');
     setSearchTerm(val);
     setUsername(val);
-    if (val.trim()) {
-      setIsDropdownOpen(true);
-    }
+    setIsDropdownOpen(true);
   };
 
-  const handleSelectStudent = (studentName: string) => {
+  const handleSelectStudent = (student: StudentItem | string) => {
     setAuthError('');
+    const studentName = typeof student === 'string' ? student : student.name;
     setUsername(studentName);
     setSearchTerm(studentName);
+
+    if (studentName.toUpperCase() === 'TAMU') {
+      setUserClass('TAMU');
+    } else if (typeof student !== 'string' && student.userClass && (!userClass || userClass === 'TAMU')) {
+      setUserClass(student.userClass);
+    }
     setIsDropdownOpen(false);
   };
 
@@ -249,8 +268,17 @@ export const Login: React.FC<LoginProps> = ({
       return;
     }
 
+    // 2. TAMU Guest User Bypass (Requires no class selection, allows immediate access to materials)
+    if (cleanUser.toUpperCase() === 'TAMU' || cleanCls.toUpperCase() === 'TAMU') {
+      setUserClass('TAMU');
+      setUsername('TAMU');
+      sheetService.recordLogin('TAMU', 'TAMU');
+      onLogin(e);
+      return;
+    }
+
     if (!cleanCls) {
-      setAuthError('Silakan pilih Kelas Anda terlebih dahulu.');
+      setAuthError('Silakan pilih Kelas Anda terlebih dahulu (atau pilih akun TAMU).');
       return;
     }
 
@@ -441,13 +469,9 @@ export const Login: React.FC<LoginProps> = ({
                     type="text" 
                     value={searchTerm}
                     onChange={(e) => handleInputChange(e.target.value)}
-                    onFocus={() => {
-                      if (userClass) setIsDropdownOpen(true);
-                    }}
-                    onClick={() => {
-                      if (userClass) setIsDropdownOpen(true);
-                    }}
-                    placeholder={userClass ? `Ketik nama Anda...` : `Ketik nama siswa...`}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    onClick={() => setIsDropdownOpen(true)}
+                    placeholder={userClass && userClass !== 'TAMU' ? `Ketik / pilih nama Anda...` : `Pilih 'TAMU' atau ketik nama...`}
                     className="w-full pl-5 pr-12 py-3 md:py-3.5 rounded-2xl text-base md:text-lg font-bold border-2 transition-all outline-hidden bg-white/95 border-purple-300 text-purple-950 hover:border-purple-400 focus:border-purple-600 shadow-md placeholder:text-slate-400"
                     autoComplete="off"
                   />
@@ -464,24 +488,23 @@ export const Login: React.FC<LoginProps> = ({
                         <X size={14} />
                       </button>
                     )}
-                    {userClass && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsDropdownOpen(!isDropdownOpen);
-                          if (inputRef.current) inputRef.current.focus();
-                        }}
-                        className="p-1 text-purple-900 hover:text-purple-700 transition-colors cursor-pointer"
-                      >
-                        <ChevronDown size={18} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDropdownOpen(!isDropdownOpen);
+                        if (inputRef.current) inputRef.current.focus();
+                      }}
+                      className="p-1 text-purple-900 hover:text-purple-700 transition-colors cursor-pointer"
+                      title="Buka daftar siswa / akun tamu"
+                    >
+                      <ChevronDown size={18} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
                 </div>
 
                 {/* FLOATING FILTERABLE DROPDOWN MENU */}
                 <AnimatePresence>
-                  {isDropdownOpen && userClass && (
+                  {isDropdownOpen && (
                     <motion.div
                       initial={{ opacity: 0, y: -6, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -491,34 +514,55 @@ export const Login: React.FC<LoginProps> = ({
                     >
                       {/* Dropdown Student List */}
                       <div className="overflow-y-auto divide-y divide-slate-100 flex-1 p-1">
-                        {classStudents.length === 0 ? (
-                          <div className="p-3 text-center text-slate-400 text-xs font-semibold">
-                            Tidak ada siswa di Kelas {userClass}
-                          </div>
-                        ) : filteredStudentSuggestions.length === 0 ? (
+                        {filteredStudentSuggestions.length === 0 ? (
                           <div className="p-3 text-center text-slate-400 text-xs font-semibold">
                             Nama tidak ditemukan
                           </div>
                         ) : (
                           filteredStudentSuggestions.map((student, idx) => {
+                            const isTamu = student.name.toUpperCase() === 'TAMU';
                             const isSelected = username.trim().toUpperCase() === student.name.trim().toUpperCase();
                             return (
                               <button
                                 key={`opt-std-${student.id || idx}`}
                                 type="button"
-                                onClick={() => handleSelectStudent(student.name)}
+                                onClick={() => handleSelectStudent(student)}
                                 className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 rounded-xl transition-all cursor-pointer ${
-                                  isSelected 
-                                    ? 'bg-purple-100 text-purple-950 font-bold' 
-                                    : 'hover:bg-purple-50 text-slate-800 font-medium'
+                                  isTamu
+                                    ? isSelected
+                                      ? 'bg-amber-100 text-amber-950 font-bold border border-amber-300'
+                                      : 'bg-amber-50/70 hover:bg-amber-100 text-amber-950 font-bold border border-amber-200/70'
+                                    : isSelected 
+                                      ? 'bg-purple-100 text-purple-950 font-bold' 
+                                      : 'hover:bg-purple-50 text-slate-800 font-medium'
                                 }`}
                               >
-                                <span className="text-sm truncate">
-                                  {renderHighlightedName(student.name, searchTerm)}
-                                </span>
+                                <div className="flex items-center gap-2 truncate">
+                                  {isTamu ? (
+                                    <span className="px-1.5 py-0.5 bg-amber-400 text-amber-950 rounded-md text-[10px] font-black uppercase tracking-wider shrink-0">
+                                      UMUM
+                                    </span>
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                                  )}
+                                  <div className="flex flex-col truncate">
+                                    <span className={`text-sm truncate ${isTamu ? 'font-black text-amber-950' : ''}`}>
+                                      {renderHighlightedName(student.name, searchTerm)}
+                                    </span>
+                                    {isTamu ? (
+                                      <span className="text-[10px] text-amber-800 font-semibold">
+                                        Akun Tamu &bull; Bebas Akses Materi Tanpa Kelas
+                                      </span>
+                                    ) : student.userClass && !userClass ? (
+                                      <span className="text-[10px] text-slate-400">
+                                        Kelas {student.userClass}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
                                 
                                 {isSelected && (
-                                  <div className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0">
+                                  <div className={`w-4 h-4 rounded-full ${isTamu ? 'bg-amber-600' : 'bg-purple-600'} text-white flex items-center justify-center shrink-0`}>
                                     <Check size={11} />
                                   </div>
                                 )}

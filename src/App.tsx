@@ -244,6 +244,21 @@ const App = () => {
       return;
     }
 
+    // Guest TAMU mode bypass - DOES NOT require choosing a regular student class
+    if (currentUsername.toUpperCase() === 'TAMU' || currentClass.toUpperCase() === 'TAMU') {
+      setIsTeacherMode(false);
+      localStorage.removeItem('ipa_is_teacher');
+      setUserClass('TAMU');
+      setUsername('TAMU');
+      setIsLoggedIn(true);
+      setProgress(prev => ({ ...prev, username: 'TAMU' }));
+      setCurrentView('home');
+      localStorage.setItem('ipa_user', 'TAMU');
+      localStorage.setItem('ipa_user_class', 'TAMU');
+      localStorage.setItem('ipa_is_logged_in', 'true');
+      return;
+    }
+
     if (currentUsername && currentClass) {
       const lastUser = localStorage.getItem('ipa_user');
       setIsTeacherMode(false);
@@ -570,7 +585,7 @@ const App = () => {
                   {username || 'Siswa'}
                 </span>
                 <span className="text-[8px] opacity-50 font-bold uppercase tracking-wider leading-none mt-0.5">
-                  Kelas {userClass || '-'}
+                  {userClass?.toUpperCase() === 'TAMU' ? 'Akses Tamu' : `Kelas ${userClass || '-'}`}
                 </span>
               </div>
               <button 

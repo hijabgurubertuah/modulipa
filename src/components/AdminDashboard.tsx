@@ -97,7 +97,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   // --- Navigation Tab State ---
   const [activeTab, setActiveTab] = useState<
-    'materi' | 'kuis' | 'game' | 'kelas' | 'siswa' | 'nilai' | 'log' | 'sheet_config' | 'pengaturan'
+    'materi' | 'kuis' | 'game' | 'kelas' | 'siswa' | 'nilai' | 'log' | 'pengaturan'
   >('materi');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
@@ -1542,7 +1542,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     {
       category: 'Integrasi & Sistem',
       items: [
-        { id: 'sheet_config' as const, label: 'Google Sheet Apps Script', icon: FileSpreadsheet, count: undefined, color: 'text-emerald-600' },
         { id: 'pengaturan' as const, label: 'Pengaturan Umum', icon: Settings, count: undefined, color: 'text-emerald-600' }
       ]
     }
@@ -1563,17 +1562,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <button
           id="btn-admin-mobile-nav-trigger"
           onClick={() => setIsMobileSidebarOpen(true)}
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-gradient-to-r from-emerald-700 via-emerald-800 to-teal-900 hover:from-emerald-800 hover:to-teal-950 text-white shadow-2xl rounded-r-2xl py-3 px-2 flex flex-col items-center gap-1.5 border-y border-r border-emerald-400/50 cursor-pointer active:scale-95 transition-all group"
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-40 w-[30px] h-[150px] bg-emerald-800/85 hover:bg-emerald-900 text-white backdrop-blur-md rounded-r-2xl border border-l-0 border-emerald-400/40 flex items-center justify-center shadow-xl cursor-pointer active:scale-95 transition-all group overflow-hidden"
           title="Buka Menu Pengelolaan Admin"
           aria-label="Buka Menu Pengelolaan Admin"
         >
-          <div className="p-1.5 bg-white/20 rounded-xl group-hover:bg-white/30 transition-colors shadow-inner">
-            <PanelLeft size={18} className="text-white" />
-          </div>
-          <span className="[writing-mode:vertical-lr] rotate-180 text-[10px] font-black tracking-widest uppercase text-emerald-100 py-1 select-none">
-            Menu Admin
-          </span>
-          <ChevronRight size={14} className="text-emerald-300 group-hover:translate-x-0.5 transition-transform" />
+          <Menu size={18} className="text-white opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all" />
         </button>
       </aside>
 
@@ -1696,7 +1689,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className="md:hidden p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 transition-colors"
             title="Buka Menu Admin"
           >
-            <PanelLeft size={18} />
+            <Menu size={18} />
           </button>
 
           <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-sm">
@@ -2426,7 +2419,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div className="flex flex-wrap items-center gap-2">
                       {/* Action buttons */}
-                      {settings.sheetUrl ? (
+                      {settings.sheetUrl && (
                         <a
                           href={settings.sheetUrl}
                           target="_blank"
@@ -2438,18 +2431,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <span>Buka Google Sheet</span>
                           <ExternalLink size={12} />
                         </a>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setActiveTab('sheet');
-                            showNotification('Silakan masukkan link URL Google Spreadsheet Anda di form konfigurasi di bawah untuk akses langsung.', 'info');
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-300 cursor-pointer"
-                          title="Atur link Google Spreadsheet di menu Integrasi Spreadsheet"
-                        >
-                          <FileSpreadsheet size={13} />
-                          <span>Buka Google Sheet</span>
-                        </button>
                       )}
 
                       {settings.googleAppsScriptUrl && (
@@ -2675,7 +2656,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {settings.sheetUrl ? (
+                      {settings.sheetUrl && (
                         <a
                           href={settings.sheetUrl}
                           target="_blank"
@@ -2687,18 +2668,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <span>Buka Google Sheet</span>
                           <ExternalLink size={12} />
                         </a>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setActiveTab('sheet');
-                            showNotification('Silakan masukkan link URL Google Spreadsheet Anda di menu Integrasi Spreadsheet.', 'info');
-                          }}
-                          className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-300 cursor-pointer"
-                          title="Atur link Google Spreadsheet di menu Integrasi Spreadsheet"
-                        >
-                          <FileSpreadsheet size={13} />
-                          <span>Buka Google Sheet</span>
-                        </button>
                       )}
 
                       {settings.googleAppsScriptUrl && (
@@ -3064,338 +3033,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               )}
 
               {/* ========================================================================= */}
-              {/* TAB 7: INTEGRASI GOOGLE SHEET & APPS SCRIPT                               */}
-              {/* ========================================================================= */}
-              {activeTab === 'sheet_config' && (
-                <div className="space-y-6 max-w-4xl">
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900">Integrasi Google Sheet &amp; Google Drive</h2>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Kelola data kelas, siswa, info login, dan rekap nilai langsung di Google Spreadsheet Anda dengan integrasi API resmi.
-                      </p>
-                    </div>
-
-                    {settings.sheetUrl && (
-                      <a
-                        href={settings.sheetUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-xs"
-                      >
-                        <FileSpreadsheet size={14} />
-                        <span>Buka Spreadsheet di Tab Baru</span>
-                        <ExternalLink size={12} />
-                      </a>
-                    )}
-                  </div>
-
-                  {/* KARTU UTAMA: GOOGLE APPS SCRIPT WEB APP (OTOMATIS & ANTI-REMIX) */}
-                  <div className="bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-emerald-500/30 space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="space-y-1.5 max-w-2xl">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-emerald-500/20 text-emerald-300 rounded-xl border border-emerald-400/30">
-                            <Database size={20} />
-                          </span>
-                          <div>
-                            <h3 className="text-base font-black tracking-wide text-white flex items-center gap-2">
-                              Integrasi Google Apps Script (Utama &amp; Otomatis)
-                              <span className="px-2.5 py-0.5 bg-emerald-400 text-emerald-950 font-black rounded-full text-[10px] tracking-normal uppercase">
-                                Rekomendasi
-                              </span>
-                            </h3>
-                            <p className="text-xs text-emerald-100/90 mt-0.5 leading-relaxed">
-                              Sistem terhubung langsung ke Google Spreadsheet milik <strong>gubersmart@gmail.com</strong>. Siapa pun yang mengakses atau me-<strong>remix</strong> aplikasi ini <strong>langsung bisa mengelola kelas, siswa, dan mencatat nilai otomatis tanpa perlu login Google lagi</strong>.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {settings.googleAppsScriptUrl ? (
-                        <span className="px-3 py-1.5 rounded-2xl text-xs font-bold bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 backdrop-blur-md shrink-0 flex items-center gap-1.5 shadow-sm">
-                          <CheckCircle2 size={14} className="text-emerald-300" /> Terhubung ke Apps Script
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1.5 rounded-2xl text-xs font-bold bg-amber-400 text-amber-950 shrink-0 flex items-center gap-1.5 shadow-sm">
-                          <AlertCircle size={14} /> Belum Terhubung
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-white/10">
-                      <button
-                        onClick={handleTestSheetConnection}
-                        disabled={isTestingSheetConnection || !settings.googleAppsScriptUrl}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-amber-950 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                        title="Uji apakah URL Google Apps Script merespon dan spreadsheet terhubung"
-                      >
-                        <Activity size={14} className={isTestingSheetConnection ? 'animate-spin' : ''} />
-                        <span>{isTestingSheetConnection ? 'Menguji Koneksi...' : '⚡ Uji Koneksi Langsung (Ping)'}</span>
-                      </button>
-
-                      <button
-                        onClick={handlePullDataFromSheet}
-                        disabled={isSyncingSheet || !settings.googleAppsScriptUrl}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white text-emerald-900 hover:bg-emerald-50 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                      >
-                        <RefreshCw size={14} className={isSyncingSheet ? 'animate-spin' : ''} />
-                        <span>📥 Tarik Data Siswa &amp; Kelas dari Sheet</span>
-                      </button>
-
-                      <button
-                        onClick={handlePushDataToSheet}
-                        disabled={isSyncingSheet || !settings.googleAppsScriptUrl}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                      >
-                        <Upload size={14} />
-                        <span>📤 Sinkronkan Semua Tab Kelas ke Sheet</span>
-                      </button>
-
-                      {settings.googleAppsScriptUrl && (
-                        <button
-                          onClick={handleDisconnectSheet}
-                          className="flex items-center gap-1.5 px-3 py-2.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ml-auto"
-                          title="Reset koneksi sheet"
-                        >
-                          <Trash2 size={13} />
-                          <span>Reset Koneksi</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Live Diagnostic Result Box */}
-                    {sheetTestResult && (
-                      <div className={`p-4 rounded-xl text-xs mt-3 transition-all border ${
-                        sheetTestResult.success 
-                          ? 'bg-emerald-950/60 border-emerald-400/50 text-emerald-100' 
-                          : 'bg-rose-950/60 border-rose-400/50 text-rose-100'
-                      }`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2.5 h-2.5 rounded-full ${sheetTestResult.success ? 'bg-emerald-400 animate-ping' : 'bg-rose-400'}`} />
-                              <strong className="text-white text-sm">
-                                {sheetTestResult.success ? 'Koneksi Spreadsheet 100% Aktif & Terhubung!' : 'Koneksi Gagal / Perlu Dicek'}
-                              </strong>
-                              {sheetTestResult.latencyMs !== undefined && (
-                                <span className="px-2 py-0.5 bg-white/10 rounded-md font-mono text-[10px] text-white">
-                                  Respon: {sheetTestResult.latencyMs} ms
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs opacity-90">{sheetTestResult.message}</p>
-                            
-                            {sheetTestResult.success && (
-                              <div className="pt-2 flex flex-wrap gap-4 text-[11px] text-white/90">
-                                <div className="bg-black/30 px-2.5 py-1 rounded-lg">
-                                  <strong>Kelas di Sheet:</strong> {sheetTestResult.classesCount || 0} ({sheetTestResult.classList?.join(', ') || '-'})
-                                </div>
-                                <div className="bg-black/30 px-2.5 py-1 rounded-lg">
-                                  <strong>Siswa di Sheet:</strong> {sheetTestResult.studentsCount || 0} akun
-                                </div>
-                                <div className="bg-black/30 px-2.5 py-1 rounded-lg">
-                                  <strong>Rekap Nilai di Sheet:</strong> {sheetTestResult.scoresCount || 0} data
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {isSyncingSheet && syncStatusMsg && (
-                      <p className="text-xs text-amber-200 font-semibold animate-pulse pt-1">
-                        &bull; {syncStatusMsg}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* KARTU KEDUA: GOOGLE SIGN IN / OAUTH LANGSUNG (OPSIONAL) */}
-                  <div className="bg-slate-900 text-white rounded-3xl p-6 shadow-md border border-slate-800 space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="space-y-1 max-w-xl">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-indigo-500/20 text-indigo-300 rounded-xl border border-indigo-400/30">
-                            <Cloud size={18} />
-                          </span>
-                          <div>
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                              Opsi Tambahan: Akses Langsung Google OAuth (Client API)
-                              <span className="px-2 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-full text-[10px]">
-                                Opsional
-                              </span>
-                            </h3>
-                            <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                              Tombol login ini hanya digunakan jika Anda ingin menghubungkan akun Google yang sedang aktif di browser untuk menulis via REST API. <em>(Jika menggunakan Google Apps Script di atas, Anda <strong>tidak perlu</strong> login Google di sini)</em>.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Google Sign-in / Connected Status */}
-                      {googleUser ? (
-                        <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-xl border border-white/20">
-                          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <div className="text-left">
-                            <p className="text-[10px] text-indigo-200">Login sebagai:</p>
-                            <p className="text-xs font-bold text-white max-w-[160px] truncate">{googleUser.email || googleUser.displayName || 'Akun Google'}</p>
-                          </div>
-                          <button
-                            onClick={handleGoogleSignOut}
-                            className="ml-2 px-2 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                          >
-                            Logout
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={handleGoogleSignIn}
-                          disabled={isGoogleLoggingIn}
-                          className="flex items-center gap-2 px-3.5 py-2 bg-white text-slate-800 hover:bg-slate-100 font-bold rounded-xl text-xs transition-all shadow active:scale-95 cursor-pointer disabled:opacity-50"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 48 48">
-                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                          </svg>
-                          <span>{isGoogleLoggingIn ? 'Menghubungkan...' : 'Sign in with Google'}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {googleUser && (
-                      <div className="pt-2 border-t border-slate-800 flex flex-wrap gap-2">
-                        <button
-                          onClick={handleSetupFullStandardSheetDirect}
-                          disabled={isDirectSheetsWorking}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                        >
-                          <Sparkles size={13} />
-                          <span>1-Click Strukturkan Tab Direct</span>
-                        </button>
-                        <button
-                          onClick={handlePullDirectFromSheets}
-                          disabled={isDirectSheetsWorking}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                        >
-                          <RefreshCw size={13} />
-                          <span>Tarik Direct dari Google API</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Form Settings */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Konfigurasi Spreadsheet Akun gubersmart@gmail.com
-                    </h3>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Google Apps Script Web App URL (Deploy URL)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://script.google.com/macros/s/AKfycbx.../exec"
-                        value={settings.googleAppsScriptUrl}
-                        onChange={e => setSettings({ ...settings, googleAppsScriptUrl: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-hidden font-mono"
-                      />
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Masukkan URL Web App dari hasil &apos;Deploy &rarr; New deployment &rarr; Web app&apos; pada Google Apps Script di akun Google Anda.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Link URL Google Spreadsheet Anda (Opsional - untuk akses langsung)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://docs.google.com/spreadsheets/d/your-spreadsheet-id/edit"
-                        value={settings.sheetUrl || ''}
-                        onChange={e => setSettings({ ...settings, sheetUrl: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-hidden font-mono"
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={handleSaveSettings}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                      >
-                        <Save size={15} />
-                        <span>Simpan Konfigurasi</span>
-                      </button>
-
-                      <button
-                        onClick={handleTestSheetConnection}
-                        disabled={isTestingSheetConnection || !settings.googleAppsScriptUrl}
-                        className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                      >
-                        <Activity size={14} className={isTestingSheetConnection ? 'animate-spin' : ''} />
-                        <span>{isTestingSheetConnection ? 'Menguji...' : 'Uji URL Ini'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Step-by-Step Instructions & Generator Code */}
-                  <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">
-                          Kode Google Apps Script Multi-Tab Otomatis
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Setiap kelas akan otomatis dibuatkan tab <strong>Siswa_[KELAS]</strong> (dengan status login) dan <strong>Nilai_[KELAS]</strong>, serta tab master <strong>Ringkasan_Kelas</strong>.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={handleCopyAppsScript}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                      >
-                        {copiedScript ? <Check size={14} /> : <Copy size={14} />}
-                        <span>{copiedScript ? 'Tersalin!' : 'Salin Semua Kode'}</span>
-                      </button>
-                    </div>
-
-                    {/* Step-by-step numbered guide */}
-                    <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-900 space-y-2">
-                      <p className="font-bold text-emerald-950">Panduan Setup Lengkap untuk Akun Google gubersmart@gmail.com:</p>
-                      <ol className="list-decimal list-inside space-y-1.5 text-slate-700">
-                        <li>Buka Google Spreadsheet baru di Google Drive akun <strong>gubersmart@gmail.com</strong> (misal beri judul: <em>Database Modul IPA</em>).</li>
-                        <li>Klik menu <strong>Extensions (Ekstensi) &gt; Apps Script</strong>.</li>
-                        <li>Hapus semua kode bawaan (<code>myFunction</code>), lalu klik tombol <strong>"Salin Semua Kode"</strong> di atas dan <strong>Paste (Tempel)</strong> ke editor Apps Script.</li>
-                        <li>Klik ikon <strong>Simpan (Save / Ctrl+S)</strong>.</li>
-                        <li>Di bagian atas editor Apps Script, pilih fungsi <code>setupDatabaseSheets</code> pada menu dropdown, lalu klik <strong>Run (Jalankan)</strong>. Berikan izin (Review Permissions) jika diminta. Tab-tab awal akan langsung terbentuk rapi!</li>
-                        <li>Klik tombol biru <strong>Deploy &gt; New deployment</strong> (atau Kelola Deployment &gt; Deploy versi baru).</li>
-                        <li>Pilih jenis <strong>Web app</strong> dan pastikan pengaturannya:
-                          <ul className="list-disc list-inside ml-4 mt-0.5 text-slate-600">
-                            <li><em>Description:</em> Modul IPA Multi-Tab API</li>
-                            <li><em>Execute as:</em> <strong>Me (gubersmart@gmail.com)</strong></li>
-                            <li><em>Who has access:</em> <strong>Anyone (Siapa saja)</strong></li>
-                          </ul>
-                        </li>
-                        <li>Klik <strong>Deploy</strong>, lalu salin <strong>Web App URL</strong> dan tempelkan ke kolom form di atas.</li>
-                        <li>Selesai! Saat menambah/menghapus kelas atau siswa di dashboard ini, Google Sheet akan otomatis menambah atau merapikan tab sheet masing-masing kelas.</li>
-                      </ol>
-                    </div>
-
-                    {/* Code Snippet Box */}
-                    <div className="relative bg-slate-900 text-slate-100 rounded-xl p-4 font-mono text-[11px] overflow-x-auto max-h-80 custom-scrollbar">
-                      <pre>{sheetService.getAppsScriptTemplate(settings.sheetId)}</pre>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================================= */}
-              {/* TAB 8: PENGATURAN LOGO, SIDEBAR, HALAMAN UTAMA & UMUM                     */}
+              {/* TAB PENGATURAN LOGO, SIDEBAR, HALAMAN UTAMA & UMUM                       */}
               {/* ========================================================================= */}
               {activeTab === 'pengaturan' && (
                 <div className="space-y-6 max-w-4xl">
