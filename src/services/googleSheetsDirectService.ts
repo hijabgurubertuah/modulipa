@@ -379,7 +379,8 @@ export const googleSheetsDirectService = {
   setupFullStandardSpreadsheet: async (
     spreadsheetIdOrUrl: string,
     classes: ClassItem[],
-    students: StudentItem[]
+    students: StudentItem[],
+    scores?: ScoreRecord[]
   ): Promise<{ success: boolean; message: string; details: string[] }> => {
     const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
     const details: string[] = [];
@@ -407,6 +408,7 @@ export const googleSheetsDirectService = {
       c.description || ''
     ]);
     if (classRows.length > 0) {
+      await googleSheetsDirectService.clearRange(spreadsheetId, "'Ringkasan_Kelas'!A2:D200");
       await googleSheetsDirectService.updateRangeValues(spreadsheetId, "'Ringkasan_Kelas'!A2:D" + (classRows.length + 1), classRows);
       details.push(`Data ${classRows.length} kelas ditulis ke "Ringkasan_Kelas".`);
     }
@@ -435,7 +437,6 @@ export const googleSheetsDirectService = {
           s.password || '',
           s.status || 'Aktif'
         ]);
-        // Clear first then write
         await googleSheetsDirectService.clearRange(spreadsheetId, `'${studentTabName}'!A2:F200`);
         await googleSheetsDirectService.updateRangeValues(spreadsheetId, `'${studentTabName}'!A2:F` + (studentRows.length + 1), studentRows);
         details.push(`${studentRows.length} siswa ditulis ke tab "${studentTabName}".`);
@@ -447,6 +448,23 @@ export const googleSheetsDirectService = {
           'Waktu', 'Nama Lengkap', 'Kelas', 'Kuis / Modul', 'Nilai', 'Total Soal', 'Persentase (%)'
         ]);
         details.push(`Tab "${scoreTabName}" dibuat.`);
+      }
+
+      // Write scores for this class
+      const classScores = (scores || []).filter(sc => (sc.userClass || '').toUpperCase() === c.name.toUpperCase());
+      if (classScores.length > 0) {
+        const scoreRows = classScores.map(sc => [
+          sc.date || new Date().toLocaleString('id-ID'),
+          sc.username || '',
+          sc.userClass || c.name,
+          sc.quizTitle || `Modul ${sc.moduleNumber}`,
+          sc.score || 0,
+          sc.totalQuestions || 0,
+          sc.percentage ? `${sc.percentage}%` : '0%'
+        ]);
+        await googleSheetsDirectService.clearRange(spreadsheetId, `'${scoreTabName}'!A2:G500`);
+        await googleSheetsDirectService.updateRangeValues(spreadsheetId, `'${scoreTabName}'!A2:G` + (scoreRows.length + 1), scoreRows);
+        details.push(`${scoreRows.length} rekap nilai ditulis ke tab "${scoreTabName}".`);
       }
     }
 
@@ -460,7 +478,7 @@ export const googleSheetsDirectService = {
 
     return {
       success: true,
-      message: 'Seluruh struktur Google Spreadsheet berhasil disinkronkan langsung via Google Sheets API!',
+      message: 'Seluruh struktur dan isi Google Spreadsheet berhasil disinkronkan langsung via Google Sheets API!',
       details
     };
   },

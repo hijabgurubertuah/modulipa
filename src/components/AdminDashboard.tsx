@@ -1420,18 +1420,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // --- Handlers: Push Local Data to Google Sheet ---
   const handlePushDataToSheet = async () => {
+    // If logged in with Google, perform direct verified Google Sheets API write
+    if (googleUser && settings.sheetUrl) {
+      setIsSyncingSheet(true);
+      setSyncStatusMsg('Menyinkronkan seluruh Tab Kelas, Akun Siswa & Nilai langsung via Google Sheets API...');
+
+      try {
+        const res = await googleSheetsDirectService.setupFullStandardSpreadsheet(
+          settings.sheetUrl,
+          classes,
+          students,
+          scores
+        );
+        if (res.success) {
+          showNotification('Berhasil! Seluruh data kelas, siswa, dan nilai telah tertulis langsung ke Google Spreadsheet Anda.', 'success');
+        } else {
+          showNotification(res.message || 'Gagal menyinkronkan data ke Google Sheet', 'error');
+        }
+      } catch (err: any) {
+        showNotification(`Gagal menulis data ke Google Sheet: ${err?.message || err}`, 'error');
+      } finally {
+        setIsSyncingSheet(false);
+        setSyncStatusMsg('');
+      }
+      return;
+    }
+
+    // If not logged in with Google, require Google Login or attempt Apps Script
     if (!settings.googleAppsScriptUrl || !settings.googleAppsScriptUrl.trim().startsWith('http')) {
-      showNotification('Harap masukkan URL Google Apps Script Web App terlebih dahulu!', 'error');
+      showNotification('Silakan Login dengan Akun Google Guru di atas atau masukkan URL Web App Apps Script.', 'error');
       return;
     }
 
     setIsSyncingSheet(true);
-    setSyncStatusMsg('Menyinkronkan seluruh Tab Kelas, Akun Siswa & Nilai ke Google Sheet...');
+    setSyncStatusMsg('Mengirim data ke Web App Google Apps Script...');
 
     try {
       const res = await sheetService.syncAllToGoogleSheet(classes, students, scores);
       if (res.success) {
-        showNotification('Seluruh tab kelas, akun siswa, dan nilai berhasil disinkronkan ke Google Sheet!', 'success');
+        showNotification('Permintaan sinkronisasi terkirim ke Apps Script. (Tips: Login Akun Google Guru di atas untuk verifikasi penulisan langsung 100%).', 'info');
       } else {
         showNotification(res.message, 'error');
       }
