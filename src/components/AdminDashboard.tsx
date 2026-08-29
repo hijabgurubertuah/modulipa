@@ -97,7 +97,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   // --- Navigation Tab State ---
   const [activeTab, setActiveTab] = useState<
-    'materi' | 'kuis' | 'game' | 'kelas' | 'siswa' | 'nilai' | 'log' | 'pengaturan'
+    'materi' | 'kuis' | 'game' | 'kelas' | 'siswa' | 'nilai' | 'log' | 'spreadsheet' | 'pengaturan'
   >('materi');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
@@ -899,25 +899,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const res = await googleSheetsDirectService.pullAllDataDirect(sheetTarget);
       if (res.success) {
-        if (res.classes.length > 0) {
-          setClasses(res.classes);
-          for (const c of res.classes) {
-            await firestoreService.saveClass(c);
-          }
-        }
-        if (res.students.length > 0) {
-          setStudents(res.students);
-          for (const s of res.students) {
-            await firestoreService.saveStudent(s);
-          }
-        }
-        if (res.scores.length > 0) {
-          setScores(res.scores);
-          for (const sc of res.scores) {
-            await firestoreService.saveScore(sc);
-          }
-        }
-        showNotification(`Berhasil menarik ${res.classes.length} Kelas, ${res.students.length} Siswa, dan ${res.scores.length} Nilai langsung dari Google Spreadsheet!`, 'success');
+        const pulledClasses = res.classes || [];
+        const pulledStudents = res.students || [];
+        const pulledScores = res.scores || [];
+
+        // Accurately mirror Google Spreadsheet (if empty in sheet, clears app data too)
+        await firestoreService.replaceAllClasses(pulledClasses);
+        await firestoreService.replaceAllStudents(pulledStudents);
+        await firestoreService.replaceAllScores(pulledScores);
+
+        setClasses(pulledClasses);
+        setStudents(pulledStudents);
+        setScores(pulledScores);
+
+        showNotification(`Berhasil menarik ${pulledClasses.length} Kelas, ${pulledStudents.length} Siswa, dan ${pulledScores.length} Nilai langsung dari Google Spreadsheet! Data aplikasi telah disesuaikan sama persis dengan isi Spreadsheet.`, 'success');
       } else {
         showNotification(res.message || 'Gagal menarik data dari Google Sheet', 'error');
       }
@@ -1399,31 +1394,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         return;
       }
 
-      setSyncStatusMsg('Menyimpan data Kelas & Siswa ke Firebase Firestore...');
+      setSyncStatusMsg('Menyinkronkan data ke Firebase Firestore...');
 
-      // Save imported classes
-      if (result.classes && result.classes.length > 0) {
-        for (const cls of result.classes) {
-          await firestoreService.saveClass(cls);
-        }
-      }
+      const newClasses = result.classes || [];
+      const newStudents = result.students || [];
+      const newScores = result.scores || [];
 
-      // Save imported students
-      if (result.students && result.students.length > 0) {
-        for (const std of result.students) {
-          await firestoreService.saveStudent(std);
-        }
-      }
+      // Accurately mirror Google Spreadsheet (if empty in sheet, clears app data too)
+      await firestoreService.replaceAllClasses(newClasses);
+      await firestoreService.replaceAllStudents(newStudents);
+      await firestoreService.replaceAllScores(newScores);
 
-      // Save imported scores
-      if (result.scores && result.scores.length > 0) {
-        for (const sc of result.scores) {
-          await firestoreService.saveScore(sc);
-        }
-      }
-
-      // Refresh all local data
-      await loadAllData();
+      setClasses(newClasses);
+      setStudents(newStudents);
+      setScores(newScores);
 
       showNotification(result.message, 'success');
     } catch (err: any) {
@@ -1601,6 +1585,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     {
       category: 'Integrasi & Sistem',
       items: [
+        { id: 'spreadsheet' as const, label: 'Google Sheets & Akun Guru', icon: FileSpreadsheet, count: undefined, color: 'text-emerald-600' },
         { id: 'pengaturan' as const, label: 'Pengaturan Umum', icon: Settings, count: undefined, color: 'text-emerald-600' }
       ]
     }
@@ -1771,6 +1756,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         <div className="flex items-center flex-wrap gap-2">
+          {/* Google Account Login / Status in Header */}
+          {googleUser ? (
+            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold text-[10px] flex items-center justify-center overflow-hidden shrink-0">
+                {googleUser.photoURL ? (
+                  <img src={googleUser.photoURL} alt="Google Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  (googleUser.email || 'G')[0].toUpperCase()
+                )}
+              </div>
+              <div className="hidden lg:block text-left">
+                <p className="text-[11px] font-bold text-slate-800 leading-none truncate max-w-[130px]">
+                  {googleUser.displayName || googleUser.email?.split('@')[0]}
+                </p>
+                <span className="text-[9px] font-medium text-emerald-700 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Sheets API Aktif
+                </span>
+              </div>
+              <button
+                onClick={handleGoogleSignOut}
+                className="text-[11px] text-slate-400 hover:text-rose-600 font-semibold transition-colors ml-1 cursor-pointer"
+                title="Logout Akun Google"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={isGoogleLoggingIn}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+              title="Login dengan Akun Google Guru untuk mengaktifkan izin Google Sheets API (tambah/hapus tab sheet)"
+            >
+              {isGoogleLoggingIn ? (
+                <Loader2 size={14} className="animate-spin text-emerald-600" />
+              ) : (
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+              )}
+              <span>{isGoogleLoggingIn ? 'Menghubungkan...' : 'Login Akun Google Guru'}</span>
+            </button>
+          )}
+
           {/* Cloud Sync Button */}
           <button
             onClick={handleSyncAllModulesAndQuizzesToCloud}
@@ -3095,6 +3128,437 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       ))
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* TAB 7: INTEGRASI GOOGLE SPREADSHEET & AKUN GOOGLE GURU                   */}
+              {/* ========================================================================= */}
+              {activeTab === 'spreadsheet' && (
+                <div className="space-y-6 max-w-4xl">
+                  {/* Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-slate-900">Google Sheets & Akun Google Guru</h2>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          Dual Architecture
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Kelola integrasi data nilai siswa, penambahan & penghapusan tab sheet per kelas, serta login akun Google guru.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {settings.sheetUrl && (
+                        <a
+                          href={settings.sheetUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-300 transition-all"
+                        >
+                          <ExternalLink size={14} />
+                          <span>Buka Spreadsheet</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 1. SEKSI AKUN GOOGLE GURU & OTORISASI SHEETS API */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                          <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">Status Otorisasi Akun Google Guru</h3>
+                          <p className="text-xs text-slate-500">Login Google untuk mengaktifkan izin manipulasi tab dan modifikasi spreadsheet langsung</p>
+                        </div>
+                      </div>
+
+                      {googleUser ? (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-emerald-600" />
+                          Terhubung
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1.5">
+                          <AlertCircle size={13} className="text-amber-600" />
+                          Belum Login
+                        </span>
+                      )}
+                    </div>
+
+                    {googleUser ? (
+                      <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-full bg-emerald-600 text-white font-bold text-sm flex items-center justify-center overflow-hidden border-2 border-white shadow-xs">
+                            {googleUser.photoURL ? (
+                              <img src={googleUser.photoURL} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                              (googleUser.displayName || googleUser.email || 'G')[0].toUpperCase()
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">{googleUser.displayName || 'Akun Guru'}</p>
+                            <p className="text-xs text-slate-600 font-mono">{googleUser.email}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-semibold bg-emerald-200/80 text-emerald-800 px-1.5 py-0.5 rounded">
+                                Scope: spreadsheets
+                              </span>
+                              <span className="text-[10px] font-semibold bg-emerald-200/80 text-emerald-800 px-1.5 py-0.5 rounded">
+                                Scope: drive.file
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleGoogleSignOut}
+                            className="px-3.5 py-2 bg-white hover:bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-200 transition-all cursor-pointer shadow-xs"
+                          >
+                            Keluar Akun Google
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+                        <div className="max-w-lg">
+                          <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                            Ketika Anda login dengan akun Google Guru di sini, aplikasi mendapatkan token aman untuk memanggil <strong>Google Sheets API v4</strong>. Hal ini memungkinkan sistem untuk:
+                          </p>
+                          <ul className="text-xs text-slate-600 mt-1.5 space-y-1 list-disc list-inside">
+                            <li>Membuat & menghapus tab kelas otomatis (<code className="text-slate-800 bg-slate-200/70 px-1 py-0.2 rounded font-mono">Siswa_8A</code>, <code className="text-slate-800 bg-slate-200/70 px-1 py-0.2 rounded font-mono">Nilai_8A</code>, dll)</li>
+                            <li>Mengatur struktur tab secara langsung tanpa harus membuka spreadsheet manual</li>
+                          </ul>
+                        </div>
+
+                        <button
+                          onClick={handleGoogleSignIn}
+                          disabled={isGoogleLoggingIn}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                        >
+                          {isGoogleLoggingIn ? (
+                            <Loader2 size={16} className="animate-spin text-emerald-600" />
+                          ) : (
+                            <svg className="w-4 h-4" viewBox="0 0 24 24">
+                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                            </svg>
+                          )}
+                          <span>{isGoogleLoggingIn ? 'Menghubungkan...' : 'Login Akun Google Guru'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. SEKSI KONFIGURASI TERTANAM (SELF-CONTAINED / NO-SETUP REQUIREMENT) */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                        <Database size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Konfigurasi Aktif Saat Ini (Tertanam di Kode)</h3>
+                        <p className="text-xs text-slate-500">
+                          Konfigurasi ini tertanam langsung dan otomatis aktif tanpa setup baru saat aplikasi di-remix atau di-deploy.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Notice Banner */}
+                    <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-indigo-900">
+                      <Sparkles size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Siap Pakai & Bebas Setup Ulang</p>
+                        <p className="text-indigo-700 text-[11px] mt-0.5 leading-relaxed">
+                          Aplikasi ini sudah menyimpan konfigurasi default spreadsheet dan database langsung di kode program. Saat di-remix dengan akun Google baru atau di-deploy ke hosting apapun, seluruh koneksi tetap aktif tanpa perlu setup Firebase, Drive, atau Spreadsheet baru.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      {/* Active Sheet Card */}
+                      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                            <FileSpreadsheet size={14} className="text-emerald-600" />
+                            Google Spreadsheet Target
+                          </span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                            Aktif
+                          </span>
+                        </div>
+                        <p className="font-mono text-[11px] text-slate-600 truncate bg-white p-2 rounded border border-slate-200">
+                          {settings.sheetUrl || DEFAULT_SETTINGS.sheetUrl}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">ID Spreadsheet:</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {extractSpreadsheetId(settings.sheetUrl || DEFAULT_SETTINGS.sheetUrl || '') || '1y8MREQ6tr497vX_3MiO5EJeZK7ufbHH--xfhUUAOADU'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Active GAS Card */}
+                      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                            <Globe size={14} className="text-indigo-600" />
+                            Web App Google Apps Script
+                          </span>
+                          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-bold">
+                            Tersambung
+                          </span>
+                        </div>
+                        <p className="font-mono text-[11px] text-slate-600 truncate bg-white p-2 rounded border border-slate-200">
+                          {settings.googleAppsScriptUrl || DEFAULT_SETTINGS.googleAppsScriptUrl}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">Akses Eksekusi:</span>
+                          <span className="font-semibold text-emerald-700">Anyone (Siswa bisa kirim nilai)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Connection Test & Input Controls */}
+                    <div className="pt-3 border-t border-slate-100 space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800 mb-1">
+                          Ubah URL Google Spreadsheet (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings.sheetUrl || ''}
+                          onChange={(e) => setSettings({ ...settings, sheetUrl: e.target.value })}
+                          placeholder="https://docs.google.com/spreadsheets/d/1y8MREQ6tr497vX_3MiO5EJeZK7ufbHH--xfhUUAOADU/edit"
+                          className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800 mb-1">
+                          Ubah URL Web App Apps Script (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings.googleAppsScriptUrl || ''}
+                          onChange={(e) => setSettings({ ...settings, googleAppsScriptUrl: e.target.value })}
+                          placeholder="https://script.google.com/macros/s/AKfycbwcdea5JWF2NxbfzVdH9Namnxdf_mlTe6ry7wHoVolRscTsXbKDypQbJCGndPvHB0Sd/exec"
+                          className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleTestSheetConnection}
+                            disabled={isTestingSheetConnection}
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            <RefreshCw size={13} className={isTestingSheetConnection ? "animate-spin" : ""} />
+                            <span>{isTestingSheetConnection ? 'Menguji...' : 'Uji Koneksi'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setSettings({
+                                ...settings,
+                                sheetUrl: DEFAULT_SETTINGS.sheetUrl,
+                                googleAppsScriptUrl: DEFAULT_SETTINGS.googleAppsScriptUrl
+                              });
+                              showNotification('Konfigurasi berhasil di-reset ke nilai default bawaan kode.', 'info');
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                          >
+                            <RotateCcw size={13} />
+                            <span>Reset Bawaan Kode</span>
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={handleSaveSettings}
+                          disabled={isSavingSettings}
+                          className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Save size={14} />
+                          <span>{isSavingSettings ? 'Menyimpan...' : 'Simpan Pengaturan'}</span>
+                        </button>
+                      </div>
+
+                      {/* Sheet Test Result Display */}
+                      {sheetTestResult && (
+                        <div className={`p-3 rounded-xl border text-xs ${
+                          sheetTestResult.success 
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                            : 'bg-rose-50 border-rose-200 text-rose-900'
+                        }`}>
+                          <div className="flex items-center gap-2 font-bold mb-1">
+                            {sheetTestResult.success ? <CheckCircle2 size={15} className="text-emerald-600" /> : <AlertCircle size={15} className="text-rose-600" />}
+                            <span>{sheetTestResult.message}</span>
+                          </div>
+                          {sheetTestResult.success && (
+                            <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-emerald-200/60 text-[11px]">
+                              <div>Kelas di Sheet: <strong>{sheetTestResult.classesCount || 0}</strong></div>
+                              <div>Siswa di Sheet: <strong>{sheetTestResult.studentsCount || 0}</strong></div>
+                              <div>Nilai di Sheet: <strong>{sheetTestResult.scoresCount || 0}</strong></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. SEKSI METODE EDIT SPREADSHEET & SINKRONISASI */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                        <Sliders size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Mekanisme Pengeditan & Sinkronisasi Spreadsheet</h3>
+                        <p className="text-xs text-slate-500">
+                          Dua metode yang digunakan sistem untuk membaca, menulis, dan mengelola tab sheet
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      {/* Method 1: Google Apps Script Web App */}
+                      <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <h4 className="font-bold text-slate-900">Metode 1: Google Apps Script (Publik)</h4>
+                          </div>
+                          <p className="text-slate-600 text-[11px] leading-relaxed">
+                            Jalur ini digunakan saat <strong>siswa mengerjakan kuis</strong> dan login. Siswa <em>tidak perlu</em> login Google. Nilai otomatis masuk ke tab <code className="text-slate-800 font-bold">Nilai_[KELAS]</code> melalui webhook Apps Script.
+                          </p>
+                        </div>
+                        <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">Target Pengguna:</span>
+                          <span className="font-bold text-emerald-700">Siswa & Pengisian Kuis</span>
+                        </div>
+                      </div>
+
+                      {/* Method 2: Google Sheets API v4 Direct */}
+                      <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            <h4 className="font-bold text-slate-900">Metode 2: Google Sheets API Direct (Guru)</h4>
+                          </div>
+                          <p className="text-slate-600 text-[11px] leading-relaxed">
+                            Jalur ini digunakan oleh <strong>Guru/Admin</strong> di portal ini setelah login akun Google. Menggunakan Sheets API resmi untuk <strong>menambah tab</strong> saat kelas dibuat, <strong>menghapus tab</strong> saat kelas dihapus, serta menata seluruh tab.
+                          </p>
+                        </div>
+                        <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">Target Pengguna:</span>
+                          <span className="font-bold text-blue-700">Guru / Admin Portal</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="pt-4 border-t border-slate-200 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-800">Aksi Sinkronisasi Data:</h4>
+                      
+                      {/* Pull Mirror Sync Banner */}
+                      <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                        <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">Sinkronisasi Tarik Data (Cermin Penuh):</p>
+                          <p className="text-amber-800 text-[11px] mt-0.5">
+                            Ketika Anda menekan <strong>Tarik Data dari Spreadsheet</strong>, data di aplikasi akan disesuaikan 100% dengan isi sheet. Jika di spreadsheet data kosong (0 siswa/0 kelas), maka data di aplikasi juga akan ikut kosong.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5">
+                        {/* Pull Data Button */}
+                        <button
+                          onClick={handlePullDataFromSheet}
+                          disabled={isSyncingSheet}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                          title="Tarik seluruh data kelas, siswa, dan nilai dari Google Spreadsheet ke aplikasi"
+                        >
+                          <Download size={14} className={isSyncingSheet ? "animate-bounce" : ""} />
+                          <span>{isSyncingSheet ? 'Menarik Data...' : 'Tarik Data dari Spreadsheet (Sinkron Cermin)'}</span>
+                        </button>
+
+                        {/* Push Data Button */}
+                        <button
+                          onClick={handlePushDataToSheet}
+                          disabled={isSyncingSheet}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                          title="Kirim seluruh data lokal (kelas, siswa, nilai) ke Google Spreadsheet"
+                        >
+                          <Upload size={14} className={isSyncingSheet ? "animate-bounce" : ""} />
+                          <span>{isSyncingSheet ? 'Mengirim Data...' : 'Kirim / Timpa Data ke Spreadsheet'}</span>
+                        </button>
+
+                        {/* Direct Setup Full Sheet */}
+                        <button
+                          onClick={handleSetupFullStandardSheetDirect}
+                          disabled={isDirectSheetsWorking || !googleUser}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                          title="Tata ulang tab Ringkasan_Kelas, Siswa_[KELAS], Nilai_[KELAS], dan Log_Aktivitas langsung di spreadsheet via Sheets API"
+                        >
+                          <Sparkles size={14} className={isDirectSheetsWorking ? "animate-spin" : ""} />
+                          <span>{isDirectSheetsWorking ? 'Menata Sheet...' : 'Tata Ulang Tab Standar (Sheets API)'}</span>
+                        </button>
+                      </div>
+
+                      {syncStatusMsg && (
+                        <p className="text-xs text-emerald-700 font-semibold animate-pulse mt-2 flex items-center gap-1.5">
+                          <Loader2 size={13} className="animate-spin" />
+                          {syncStatusMsg}
+                        </p>
+                      )}
+
+                      {directSyncStatus && (
+                        <p className="text-xs text-blue-700 font-semibold animate-pulse mt-2 flex items-center gap-1.5">
+                          <Loader2 size={13} className="animate-spin" />
+                          {directSyncStatus}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4. SEKSI KODE APPS SCRIPT (DOKUMENTASI LENGKAP) */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Code2 size={18} className="text-slate-700" />
+                        <h3 className="text-sm font-bold text-slate-900">Kode Google Apps Script Backend (Opsional)</h3>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(sheetService.getAppsScriptTemplate(extractSpreadsheetId(settings.sheetUrl || '') || ''));
+                          setCopiedScript(true);
+                          setTimeout(() => setCopiedScript(false), 3000);
+                          showNotification('Kode Google Apps Script berhasil disalin ke clipboard!', 'success');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                      >
+                        {copiedScript ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                        <span>{copiedScript ? 'Tersalin!' : 'Salin Kode Script'}</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Jika Anda ingin membuat spreadsheet baru dari nol di Google Drive lain, salin kode ini dan tempelkan di menu <strong>Extensions &gt; Apps Script</strong> pada spreadsheet Anda.
+                    </p>
                   </div>
                 </div>
               )}

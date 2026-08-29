@@ -706,6 +706,33 @@ export const firestoreService = {
     }
   },
 
+  // Replace all classes with a new list (mirrors Google Sheet exactly, clearing old classes)
+  replaceAllClasses: async (newClasses: ClassItem[]): Promise<void> => {
+    // 1. Update local cache immediately
+    setSafeCached('classes', newClasses);
+
+    // 2. Sync to Firestore (delete existing and write new ones)
+    try {
+      const colRef = collection(db, 'classes');
+      const snap = await withTimeout(getDocs(colRef), 4000).catch(() => null);
+      if (snap && !snap.empty) {
+        const newIds = new Set(newClasses.map(c => (c.id || c.name).trim().toUpperCase()));
+        const deletePromises = snap.docs
+          .filter(d => !newIds.has(d.id.trim().toUpperCase()))
+          .map(d => deleteDoc(d.ref).catch(() => {}));
+        await Promise.allSettled(deletePromises);
+      }
+
+      const savePromises = newClasses.map(c => {
+        const docRef = doc(db, 'classes', c.id || c.name);
+        return setDoc(docRef, c, { merge: true }).catch(() => {});
+      });
+      await Promise.allSettled(savePromises);
+    } catch (err) {
+      console.warn('replaceAllClasses Firestore sync error:', err);
+    }
+  },
+
   // --- STUDENTS & LOGINS CRUD (Instant SWR Cache) ---
   getStudents: async (userClass?: string): Promise<StudentItem[]> => {
     // 1. Instant cache return (<1ms)
@@ -788,6 +815,33 @@ export const firestoreService = {
       await withTimeout(deleteDoc(docRef), 6000);
     } catch (e) {
       console.warn('Firestore deleteStudent failed:', e);
+    }
+  },
+
+  // Replace all students with a new list (mirrors Google Sheet exactly, clearing old students)
+  replaceAllStudents: async (newStudents: StudentItem[]): Promise<void> => {
+    // 1. Update local cache immediately
+    setSafeCached('students', newStudents);
+
+    // 2. Sync to Firestore (delete existing and write new ones)
+    try {
+      const colRef = collection(db, 'students');
+      const snap = await withTimeout(getDocs(colRef), 4000).catch(() => null);
+      if (snap && !snap.empty) {
+        const newIds = new Set(newStudents.map(s => s.id));
+        const deletePromises = snap.docs
+          .filter(d => !newIds.has(d.id))
+          .map(d => deleteDoc(d.ref).catch(() => {}));
+        await Promise.allSettled(deletePromises);
+      }
+
+      const savePromises = newStudents.map(s => {
+        const docRef = doc(db, 'students', s.id);
+        return setDoc(docRef, s, { merge: true }).catch(() => {});
+      });
+      await Promise.allSettled(savePromises);
+    } catch (err) {
+      console.warn('replaceAllStudents Firestore sync error:', err);
     }
   },
 
@@ -901,6 +955,33 @@ export const firestoreService = {
       await withTimeout(deleteDoc(docRef), 6000);
     } catch (e) {
       console.warn('Firestore deleteScore failed:', e);
+    }
+  },
+
+  // Replace all scores with a new list (mirrors Google Sheet exactly, clearing old scores)
+  replaceAllScores: async (newScores: ScoreRecord[]): Promise<void> => {
+    // 1. Update local cache immediately
+    setSafeCached('scores', newScores.slice(0, 500));
+
+    // 2. Sync to Firestore (delete existing and write new ones)
+    try {
+      const colRef = collection(db, 'scores');
+      const snap = await withTimeout(getDocs(colRef), 4000).catch(() => null);
+      if (snap && !snap.empty) {
+        const newIds = new Set(newScores.map(s => s.id));
+        const deletePromises = snap.docs
+          .filter(d => !newIds.has(d.id))
+          .map(d => deleteDoc(d.ref).catch(() => {}));
+        await Promise.allSettled(deletePromises);
+      }
+
+      const savePromises = newScores.map(s => {
+        const docRef = doc(db, 'scores', s.id);
+        return setDoc(docRef, s).catch(() => {});
+      });
+      await Promise.allSettled(savePromises);
+    } catch (err) {
+      console.warn('replaceAllScores Firestore sync error:', err);
     }
   },
 
